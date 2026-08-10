@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+:root {
+  /* Washi Paper background */
+  --background: #faf8f4;
+  --foreground: #1a202c;
+  
+  /* Japanese Theme Colors */
+  --color-sumi: #1a1f36;
+  --color-torii: #c53030;
+  --color-matcha: #c6f6d5;
+  --color-sakura: #fed7e2;
+  --color-wisteria: #e9d8fd;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-jp), var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html,
+body {
+  font-family: var(--font-jp), var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Smooth text rendering */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Washi shadow utilities */
+.shadow-washi {
+  box-shadow: 0 4px 12px -2px rgba(26, 31, 54, 0.05),
+              0 2px 4px -2px rgba(26, 31, 54, 0.03);
+}
+
+.shadow-washi-hover {
+  box-shadow: 0 10px 15px -3px rgba(26, 31, 54, 0.08),
+              0 4px 6px -4px rgba(26, 31, 54, 0.04);
+}
+
+/* Seigaiha Pattern (subtle waves for sidebar) */
+.bg-seigaiha {
+  background-color: #1a1f36;
+  background-image: url("data:image/svg+xml,%3Csvg width='24' height='12' viewBox='0 0 24 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 12c-3.314 0-6-2.686-6-6s2.686-6 6-6 6 2.686 6 6-2.686 6-6 6zM0 12c0-3.314 2.686-6 6-6s6 2.686 6 6' fill='%23ffffff' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+/* Word cloud decorative blob */
+.bg-wordcloud {
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(254, 215, 226, 0.55) 0%, transparent 55%),
+    radial-gradient(circle at 80% 30%, rgba(233, 216, 253, 0.45) 0%, transparent 55%),
+    radial-gradient(circle at 60% 80%, rgba(198, 246, 213, 0.4) 0%, transparent 55%),
+    radial-gradient(circle at 30% 85%, rgba(252, 231, 234, 0.45) 0%, transparent 55%);
+}
+
+/* Stat card accent stripes */
+.stat-stripe-torii { background-image: linear-gradient(to right, #c53030, #e8626a); }
+.stat-stripe-indigo { background-image: linear-gradient(to right, #3a4378, #5a6cae); }
+.stat-stripe-wisteria { background-image: linear-gradient(to right, #805ad5, #b794f4); }
+.stat-stripe-matcha { background-image: linear-gradient(to right, #2f855a, #68d391); }
+.stat-stripe-amber { background-image: linear-gradient(to right, #b7791f, #ecc94b); }
+.stat-stripe-sumi { background-image: linear-gradient(to right, #1a1f36, #4a5568); }
+
+/* Soft sakura deco corner */
+.sakura-corner {
+  position: absolute;
+  pointer-events: none;
+  width: 70px;
+  height: 70px;
+  top: -10px;
+  right: -10px;
+  background-image: radial-gradient(circle at 70% 70%, rgba(254, 215, 226, 0.7) 0%, transparent 60%);
+  border-radius: 9999px;
+}
+
+/* Suppress the text caret / selection caret that appears when clicking
+ * non-interactive elements (SVG chart labels, headings, sidebar menu labels, etc.).
+ * Real form controls keep their native caret; everything else stays click-friendly. */
+input,
+textarea,
+[contenteditable="true"] {
+  caret-color: auto;
+}
+
+h1, h2, h3, h4, h5, h6,
+p, span, label, li, dt, dd,
+svg, svg text, div {
+  caret-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+*:focus {
+  outline: none !important;
+}
