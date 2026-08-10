@@ -647,7 +647,6 @@ export function RadarImpactChart({ data }: { data: { aspek: string; sebelum: num
             tick={<RadarRadiusTick />}
             tickCount={5}
             stroke="none"
-            tickSize={0}
           />
           <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 500 }} />
           <Legend
@@ -676,7 +675,6 @@ export function PolarAreaChart({ data }: { data: { aspek: string; nilai: number 
             tick={<RadarRadiusTick />}
             tickCount={5}
             stroke="none"
-            tickSize={0}
           />
           <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 500 }} formatter={(v: any) => [`${v}%`, "Persentase"]} />
           <Radar name="Nilai" dataKey="nilai" stroke={COLOR_PALETTE.green} strokeWidth={2} fill={COLOR_PALETTE.green} fillOpacity={0.45} />
