@@ -171,12 +171,14 @@ export function Sidebar({
         className="flex items-center gap-3 border-b px-6 py-6"
         style={{ borderColor: "var(--sidebar-border)" }}
       >
-        <div
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-lg font-bold anim-pulse-glow"
-          style={{ background: "var(--accent)", color: "var(--text-on-accent)" }}
-        >
-          D
-        </div>
+        <img
+          src="/logo.webp"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = "/logo-fallback.jpg";
+          }}
+          alt="Logo PDBK"
+          className="h-9 w-9 rounded-lg object-cover anim-pulse-glow"
+        />
         <div className="leading-tight flex-1 min-w-0">
           <div className="font-semibold tracking-wide" style={{ color: "var(--text-primary)" }}>Dashboard</div>
           <div style={{ color: "var(--sidebar-text-muted)" }} className="text-xs">Evaluasi Layanan PDBK</div>
@@ -302,12 +304,14 @@ export function MobileTabs({
           )}
         </button>
         <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold"
-            style={{ background: "var(--accent)", color: "var(--text-on-accent)" }}
-          >
-            D
-          </div>
+          <img
+            src="/logo.webp"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = "/logo-fallback.jpg";
+            }}
+            alt="Logo PDBK"
+            className="h-8 w-8 rounded-lg object-cover"
+          />
           <div className="leading-tight min-w-0">
             <div className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>Dashboard PDBK</div>
             <div
@@ -488,7 +492,7 @@ export function BarChartCard({
   return (
     <div style={{ width: "100%", height }}>
       <ResponsiveContainer>
-        <BarChart data={data} margin={{ top: 24, right: 8, left: -16, bottom: 0 }}>
+        <BarChart data={data} margin={{ top: 24, right: 8, left: -16, bottom: 0 }} accessibilityLayer={false}>
           <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: ct.axis }} axisLine={false} tickLine={false} />
           <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: ct.axis }} axisLine={false} tickLine={false} />
           <Tooltip
@@ -525,7 +529,7 @@ export function PieChartCard({
   return (
     <div style={{ width: "100%", height }}>
       <ResponsiveContainer>
-        <PieChart>
+        <PieChart accessibilityLayer={false}>
           <Tooltip
             contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: 10, color: ct.tooltipText, fontSize: 12 }}
             formatter={(value, name) => [`${value} (${total ? Math.round((Number(value) / total) * 100) : 0}%)`, String(name)]}
@@ -591,7 +595,7 @@ export function HorizontalBarChart({
   return (
     <div style={{ width: "100%", height }}>
       <ResponsiveContainer>
-        <BarChart data={data} layout="vertical" margin={{ top: 8, right: 32, left: 8, bottom: 0 }}>
+        <BarChart data={data} layout="vertical" margin={{ top: 8, right: 32, left: 8, bottom: 0 }} accessibilityLayer={false}>
           <XAxis type="number" tick={{ fontSize: isCompact ? 11 : 12, fill: ct.axis }} axisLine={false} tickLine={false} />
           <YAxis
             type="category"
@@ -669,6 +673,7 @@ export function PolarAreaChart({
           data={data}
           outerRadius="75%"
           margin={{ top: 16, right: 64, bottom: 16, left: 64 }}
+          accessibilityLayer={false}
         >
           <PolarGrid stroke={ct.grid} />
           <PolarAngleAxis dataKey="aspek" tick={<PolarAngleTick fill={ct.label} data={data} />} />
@@ -714,7 +719,7 @@ export function AspekBarChart({
   return (
     <div style={{ width: "100%", height: computed }}>
       <ResponsiveContainer>
-        <BarChart data={data} layout="vertical" margin={{ top: 8, right: marginR, left: 8, bottom: 8 }}>
+        <BarChart data={data} layout="vertical" margin={{ top: 8, right: marginR, left: 8, bottom: 8 }} accessibilityLayer={false}>
           <XAxis
             type="number"
             domain={[0, 100]}
@@ -771,16 +776,16 @@ export function AspekBarChart({
   );
 }
 
-// Grouped horizontal bar chart untuk Sebelum vs Sesudah per aspek.
-// Mirip visual ringkasan Google Forms: dua bar side-by-side per row
-// + label "N (X%)" di ujung kanan.
+// Single horizontal bar chart untuk dampak program per aspek.
+// Sheet Kepala Sekolah tidak pnya data Sebelul, jadi honya tampilkan 1 bar (sesudah/capaiian).
+// Mirip visual ringkasan Google Forms + label "N (X%)" di ujung kanan.
 function DampakGroupedBarChart({
   data,
   height = 320,
   compact,
 }: {
-  data: Array<{ aspek: string; aspekFull?: string; sebelum: number; sesudah: number; sebelumCount?: number; sesudahCount?: number }>;
-  height?: number;
+  data: Array<{ aspek: string; aspekFull?: string; sesudah: number; sesudahCount?: number }>;
+  height?: number; 
   // Optional override: true=paksa compact, false=paksa normal, undefined=auto
   // (auto = true saat viewport <640px via useChartMode).
   compact?: boolean;
@@ -804,6 +809,7 @@ function DampakGroupedBarChart({
           layout="vertical"
           margin={{ top: 8, right: marginR, left: 8, bottom: 8 }}
           barCategoryGap="20%"
+          accessibilityLayer={false}
         >
           <XAxis
             type="number"
@@ -842,15 +848,6 @@ function DampakGroupedBarChart({
             }}
             formatter={(value, name) => [`${value}%`, String(name)]}
           />
-          <Bar dataKey="sebelum" name="Sebelum" fill={ct.radarSecondary} radius={[0, 4, 4, 0]}>
-            <LabelList
-              dataKey={(d: { sebelum: number; sebelumCount?: number }) =>
-                `${d.sebelumCount ?? 0} (${d.sebelum}%)`
-              }
-              position="right"
-              style={{ fontSize: labelFont, fill: ct.axisSecondary, fontWeight: 500 }}
-            />
-          </Bar>
           <Bar dataKey="sesudah" name="Sesudah" fill={ct.radarPrimary} radius={[0, 4, 4, 0]}>
             <LabelList
               dataKey={(d: { sesudah: number; sesudahCount?: number }) =>
