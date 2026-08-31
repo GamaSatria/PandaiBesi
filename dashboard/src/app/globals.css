@@ -1,101 +1,395 @@
 @import "tailwindcss";
 
-:root {
-  /* Washi Paper background */
+/* ============================================================
+   DARK THEME (default) — premium Tokyo-agency aesthetic
+   ============================================================ */
+:root,
+:root.theme-dark,
+.theme-dark {
+  --background: #0a0a0f;
+  --foreground: #e8e8ec;
+
+  --surface: rgba(255, 255, 255, 0.03);
+  --surface-strong: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  --text-primary: #ffffff;
+  --text-secondary: #e8e8ec;
+  --text-muted: #94a3b8;
+  --text-faint: #64748b;
+  --text-on-accent: #ffffff;
+
+  --accent: #f43f5e;
+  --accent-soft: #fb7185;
+  --accent-2: #a78bfa;
+  --accent-3: #38bdf8;
+  --accent-4: #34d399;
+  --accent-5: #fbbf24;
+
+  --sidebar-bg: linear-gradient(180deg, #0a0a0f 0%, #111118 60%, #0a0a0f 100%);
+  --sidebar-text: #e8e8ec;
+  --sidebar-text-muted: #94a3b8;
+  --sidebar-text-faint: #64748b;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-border-soft: rgba(255, 255, 255, 0.05);
+  --sidebar-active-bg: rgba(255, 255, 255, 0.06);
+  --sidebar-hover-bg: rgba(255, 255, 255, 0.04);
+
+  --vignette-1: rgba(167, 139, 250, 0.08);
+  --vignette-2: rgba(244, 63, 94, 0.06);
+  --vignette-3: rgba(56, 189, 248, 0.05);
+
+  --wc-blob-1: rgba(167, 139, 250, 0.18);
+  --wc-blob-2: rgba(56, 189, 248, 0.14);
+  --wc-blob-3: rgba(52, 211, 153, 0.12);
+  --wc-blob-4: rgba(244, 63, 94, 0.14);
+
+  --depth-rail-1: rgba(244, 63, 94, 0);
+  --depth-rail-2: rgba(244, 63, 94, 0.55);
+  --depth-rail-3: rgba(167, 139, 250, 0.45);
+  --depth-rail-4: rgba(56, 189, 248, 0);
+
+  --shadow-card: 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+  --shadow-card-hover: 0 16px 40px -12px rgba(0, 0, 0, 0.7);
+  --shadow-glow: rgba(244, 63, 94, 0.18);
+  --shadow-glow-strong: rgba(244, 63, 94, 0.35);
+  --shadow-glow-rgb: 244, 63, 94;
+
+  --scrollbar-thumb: rgba(255, 255, 255, 0.08);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.16);
+
+  --chart-axis: #cbd5e1;
+  --chart-axis-secondary: #94a3b8;
+  --chart-label: #e8e8ec;
+  --chart-grid: rgba(255, 255, 255, 0.08);
+  --chart-cursor: rgba(255, 255, 255, 0.04);
+  --chart-tooltip-bg: rgba(15, 15, 23, 0.92);
+  --chart-tooltip-border: rgba(255, 255, 255, 0.12);
+  --chart-tooltip-text: #e8e8ec;
+  --chart-radar-primary: #f43f5e;
+  --chart-radar-secondary: #a78bfa;
+
+  --tone-torii-icon-bg: rgba(244, 63, 94, 0.1);
+  --tone-torii-icon-text: #fda4af;
+  --tone-torii-glow: rgba(244, 63, 94, 0.55);
+  --tone-wisteria-icon-bg: rgba(139, 92, 246, 0.1);
+  --tone-wisteria-icon-text: #c4b5fd;
+  --tone-wisteria-glow: rgba(139, 92, 246, 0.55);
+  --tone-indigo-icon-bg: rgba(99, 102, 241, 0.1);
+  --tone-indigo-icon-text: #a5b4fc;
+  --tone-indigo-glow: rgba(99, 102, 241, 0.55);
+  --tone-matcha-icon-bg: rgba(16, 185, 129, 0.1);
+  --tone-matcha-icon-text: #6ee7b7;
+  --tone-matcha-glow: rgba(16, 185, 129, 0.5);
+  --tone-amber-icon-bg: rgba(245, 158, 11, 0.1);
+  --tone-amber-icon-text: #fcd34d;
+  --tone-amber-glow: rgba(245, 158, 11, 0.55);
+  --tone-sumi-icon-bg: rgba(255, 255, 255, 0.06);
+  --tone-sumi-icon-text: #cbd5e1;
+  --tone-sumi-glow: rgba(148, 163, 184, 0.35);
+  --tone-sakura-icon-bg: rgba(236, 72, 153, 0.1);
+  --tone-sakura-icon-text: #f9a8d4;
+  --tone-sakura-glow: rgba(236, 72, 153, 0.55);
+
+  --testimoni-border: rgba(255, 255, 255, 0.1);
+  --testimoni-bg: rgba(255, 255, 255, 0.02);
+  --testimoni-accent-from: #f43f5e;
+  --testimoni-accent-to: #a78bfa;
+
+  --stripe-torii-from: #f43f5e;
+  --stripe-torii-to: #fb7185;
+  --stripe-indigo-from: #6366f1;
+  --stripe-indigo-to: #818cf8;
+  --stripe-wisteria-from: #8b5cf6;
+  --stripe-wisteria-to: #c4b5fd;
+  --stripe-matcha-from: #10b981;
+  --stripe-matcha-to: #34d399;
+  --stripe-amber-from: #f59e0b;
+  --stripe-amber-to: #fbbf24;
+  --stripe-sumi-from: #475569;
+  --stripe-sumi-to: #94a3b8;
+  --stripe-sakura-from: #ec4899;
+  --stripe-sakura-to: #f9a8d4;
+
+  --gradient-text-from: #ffffff;
+  --gradient-text-mid: #e8e8ec;
+  --gradient-text-to: #f9a8d4;
+
+  --wordcloud-hover: #ffffff;
+  --wordcloud-default-alpha: 0.92;
+  --wordcloud-hover-alpha: 1;
+}
+
+/* ============================================================
+   LIGHT THEME — washi-paper inspired, premium & clean
+   ============================================================ */
+:root.theme-light,
+.theme-light {
   --background: #faf8f4;
   --foreground: #1a202c;
-  
-  /* Japanese Theme Colors */
-  --color-sumi: #1a1f36;
-  --color-torii: #c53030;
-  --color-matcha: #c6f6d5;
-  --color-sakura: #fed7e2;
-  --color-wisteria: #e9d8fd;
+
+  --surface: rgba(255, 255, 255, 0.75);
+  --surface-strong: rgba(255, 255, 255, 0.9);
+  --border: rgba(15, 15, 23, 0.08);
+  --border-strong: rgba(15, 15, 23, 0.16);
+
+  --text-primary: #0f172a;
+  --text-secondary: #1e293b;
+  --text-muted: #475569;
+  --text-faint: #64748b;
+  --text-on-accent: #ffffff;
+
+  --accent: #e11d48;
+  --accent-soft: #f43f5e;
+  --accent-2: #7c3aed;
+  --accent-3: #0284c7;
+  --accent-4: #059669;
+  --accent-5: #d97706;
+
+  --sidebar-bg: linear-gradient(180deg, #f5f1ea 0%, #ffffff 50%, #f5f1ea 100%);
+  --sidebar-text: #1e293b;
+  --sidebar-text-muted: #64748b;
+  --sidebar-text-faint: #94a3b8;
+  --sidebar-border: rgba(15, 15, 23, 0.1);
+  --sidebar-border-soft: rgba(15, 15, 23, 0.05);
+  --sidebar-active-bg: rgba(225, 29, 72, 0.08);
+  --sidebar-hover-bg: rgba(15, 15, 23, 0.04);
+
+  --vignette-1: rgba(167, 139, 250, 0.12);
+  --vignette-2: rgba(244, 63, 94, 0.08);
+  --vignette-3: rgba(56, 189, 248, 0.06);
+
+  --wc-blob-1: rgba(167, 139, 250, 0.18);
+  --wc-blob-2: rgba(56, 189, 248, 0.14);
+  --wc-blob-3: rgba(52, 211, 153, 0.14);
+  --wc-blob-4: rgba(244, 63, 94, 0.16);
+
+  --depth-rail-1: rgba(225, 29, 72, 0);
+  --depth-rail-2: rgba(225, 29, 72, 0.5);
+  --depth-rail-3: rgba(124, 58, 237, 0.4);
+  --depth-rail-4: rgba(2, 132, 199, 0);
+
+  --shadow-card: 0 1px 2px rgba(15, 15, 23, 0.04), 0 4px 12px -2px rgba(15, 15, 23, 0.06);
+  --shadow-card-hover: 0 4px 8px rgba(15, 15, 23, 0.06), 0 12px 24px -4px rgba(15, 15, 23, 0.1);
+  --shadow-glow: rgba(225, 29, 72, 0.12);
+  --shadow-glow-strong: rgba(225, 29, 72, 0.22);
+  --shadow-glow-rgb: 225, 29, 72;
+
+  --scrollbar-thumb: rgba(15, 15, 23, 0.16);
+  --scrollbar-thumb-hover: rgba(15, 15, 23, 0.28);
+
+  --chart-axis: #475569;
+  --chart-axis-secondary: #94a3b8;
+  --chart-label: #1e293b;
+  --chart-grid: rgba(15, 15, 23, 0.08);
+  --chart-cursor: rgba(15, 15, 23, 0.04);
+  --chart-tooltip-bg: rgba(255, 255, 255, 0.96);
+  --chart-tooltip-border: rgba(15, 15, 23, 0.12);
+  --chart-tooltip-text: #0f172a;
+  --chart-radar-primary: #e11d48;
+  --chart-radar-secondary: #7c3aed;
+
+  --tone-torii-icon-bg: rgba(225, 29, 72, 0.1);
+  --tone-torii-icon-text: #be123c;
+  --tone-torii-glow: rgba(225, 29, 72, 0.18);
+  --tone-wisteria-icon-bg: rgba(124, 58, 237, 0.1);
+  --tone-wisteria-icon-text: #6d28d9;
+  --tone-wisteria-glow: rgba(124, 58, 237, 0.18);
+  --tone-indigo-icon-bg: rgba(79, 70, 229, 0.1);
+  --tone-indigo-icon-text: #4338ca;
+  --tone-indigo-glow: rgba(79, 70, 229, 0.18);
+  --tone-matcha-icon-bg: rgba(5, 150, 105, 0.1);
+  --tone-matcha-icon-text: #047857;
+  --tone-matcha-glow: rgba(5, 150, 105, 0.18);
+  --tone-amber-icon-bg: rgba(217, 119, 6, 0.1);
+  --tone-amber-icon-text: #b45309;
+  --tone-amber-glow: rgba(217, 119, 6, 0.18);
+  --tone-sumi-icon-bg: rgba(15, 15, 23, 0.06);
+  --tone-sumi-icon-text: #475569;
+  --tone-sumi-glow: rgba(15, 15, 23, 0.08);
+  --tone-sakura-icon-bg: rgba(219, 39, 119, 0.1);
+  --tone-sakura-icon-text: #be185d;
+  --tone-sakura-glow: rgba(219, 39, 119, 0.18);
+
+  --testimoni-border: rgba(15, 15, 23, 0.1);
+  --testimoni-bg: rgba(255, 255, 255, 0.7);
+  --testimoni-accent-from: #e11d48;
+  --testimoni-accent-to: #7c3aed;
+
+  --stripe-torii-from: #e11d48;
+  --stripe-torii-to: #f43f5e;
+  --stripe-indigo-from: #4f46e5;
+  --stripe-indigo-to: #818cf8;
+  --stripe-wisteria-from: #7c3aed;
+  --stripe-wisteria-to: #a78bfa;
+  --stripe-matcha-from: #059669;
+  --stripe-matcha-to: #10b981;
+  --stripe-amber-from: #d97706;
+  --stripe-amber-to: #f59e0b;
+  --stripe-sumi-from: #334155;
+  --stripe-sumi-to: #64748b;
+  --stripe-sakura-from: #db2777;
+  --stripe-sakura-to: #f472b6;
+
+  --gradient-text-from: #0f172a;
+  --gradient-text-mid: #1e293b;
+  --gradient-text-to: #e11d48;
+
+  --wordcloud-hover: #0f172a;
+  --wordcloud-default-alpha: 0.95;
+  --wordcloud-hover-alpha: 1;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-jp), var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: var(--font-sans), "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 html,
 body {
-  font-family: var(--font-jp), var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans), "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
   background: var(--background);
   color: var(--foreground);
-}
-
-/* Smooth text rendering */
-* {
+  font-feature-settings: "palt";
+  font-optical-sizing: auto;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  letter-spacing: 0.01em;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Washi shadow utilities */
-.shadow-washi {
-  box-shadow: 0 4px 12px -2px rgba(26, 31, 54, 0.05),
-              0 2px 4px -2px rgba(26, 31, 54, 0.03);
+/* Subtle vignette gradient on the whole app */
+body {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, var(--vignette-1), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, var(--vignette-2), transparent 60%),
+    radial-gradient(1000px 600px at 50% 110%, var(--vignette-3), transparent 60%),
+    var(--background);
+  background-attachment: fixed;
 }
 
-.shadow-washi-hover {
-  box-shadow: 0 10px 15px -3px rgba(26, 31, 54, 0.08),
-              0 4px 6px -4px rgba(26, 31, 54, 0.04);
+/* ---- Glow / shadow system ---- */
+.glow {
+  box-shadow:
+    0 0 0 1px var(--border),
+    var(--shadow-card),
+    0 0 28px -12px var(--shadow-glow);
+}
+.glow-strong {
+  box-shadow:
+    0 0 0 1px var(--border-strong),
+    var(--shadow-card-hover),
+    0 0 40px -10px var(--shadow-glow-strong);
 }
 
-/* Seigaiha Pattern (subtle waves for sidebar) */
-.bg-seigaiha {
-  background-color: #1a1f36;
-  background-image: url("data:image/svg+xml,%3Csvg width='24' height='12' viewBox='0 0 24 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 12c-3.314 0-6-2.686-6-6s2.686-6 6-6 6 2.686 6 6-2.686 6-6 6zM0 12c0-3.314 2.686-6 6-6s6 2.686 6 6' fill='%23ffffff' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E");
+/* ---- Glassmorphism utility ---- */
+.glass {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.glass-strong {
+  background: var(--surface-strong);
+  border: 1px solid var(--border-strong);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
-/* Word cloud decorative blob */
+/* ---- Sidebar surface (theme-aware) ---- */
+.bg-sidebar {
+  background: var(--sidebar-bg);
+}
+
+/* Decorative depth meter on the right edge of the sidebar */
+.depth-rail {
+  background: linear-gradient(180deg,
+    var(--depth-rail-1) 0%,
+    var(--depth-rail-2) 35%,
+    var(--depth-rail-3) 65%,
+    var(--depth-rail-4) 100%);
+}
+
+/* ---- Word cloud decorative blob (theme-aware) ---- */
 .bg-wordcloud {
   background-image:
-    radial-gradient(circle at 20% 20%, rgba(254, 215, 226, 0.55) 0%, transparent 55%),
-    radial-gradient(circle at 80% 30%, rgba(233, 216, 253, 0.45) 0%, transparent 55%),
-    radial-gradient(circle at 60% 80%, rgba(198, 246, 213, 0.4) 0%, transparent 55%),
-    radial-gradient(circle at 30% 85%, rgba(252, 231, 234, 0.45) 0%, transparent 55%);
+    radial-gradient(circle at 20% 20%, var(--wc-blob-1) 0%, transparent 55%),
+    radial-gradient(circle at 80% 30%, var(--wc-blob-2) 0%, transparent 55%),
+    radial-gradient(circle at 60% 80%, var(--wc-blob-3) 0%, transparent 55%),
+    radial-gradient(circle at 30% 85%, var(--wc-blob-4) 0%, transparent 55%);
 }
 
-/* Stat card accent stripes */
-.stat-stripe-torii { background-image: linear-gradient(to right, #c53030, #e8626a); }
-.stat-stripe-indigo { background-image: linear-gradient(to right, #3a4378, #5a6cae); }
-.stat-stripe-wisteria { background-image: linear-gradient(to right, #805ad5, #b794f4); }
-.stat-stripe-matcha { background-image: linear-gradient(to right, #2f855a, #68d391); }
-.stat-stripe-amber { background-image: linear-gradient(to right, #b7791f, #ecc94b); }
-.stat-stripe-sumi { background-image: linear-gradient(to right, #1a1f36, #4a5568); }
+/* ---- Stat accent stripes (theme-aware) ---- */
+.stat-stripe-torii   { background-image: linear-gradient(to right, var(--stripe-torii-from),   var(--stripe-torii-to)); }
+.stat-stripe-indigo  { background-image: linear-gradient(to right, var(--stripe-indigo-from),  var(--stripe-indigo-to)); }
+.stat-stripe-wisteria{ background-image: linear-gradient(to right, var(--stripe-wisteria-from),var(--stripe-wisteria-to)); }
+.stat-stripe-matcha  { background-image: linear-gradient(to right, var(--stripe-matcha-from),  var(--stripe-matcha-to)); }
+.stat-stripe-amber   { background-image: linear-gradient(to right, var(--stripe-amber-from),   var(--stripe-amber-to)); }
+.stat-stripe-sumi    { background-image: linear-gradient(to right, var(--stripe-sumi-from),    var(--stripe-sumi-to)); }
+.stat-stripe-sakura  { background-image: linear-gradient(to right, var(--stripe-sakura-from),  var(--stripe-sakura-to)); }
 
-/* Soft sakura deco corner */
-.sakura-corner {
-  position: absolute;
-  pointer-events: none;
-  width: 70px;
-  height: 70px;
-  top: -10px;
-  right: -10px;
-  background-image: radial-gradient(circle at 70% 70%, rgba(254, 215, 226, 0.7) 0%, transparent 60%);
-  border-radius: 9999px;
+/* ---- Section divider (abysswalker-style thin rule) ---- */
+.divider-thin {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-strong), transparent);
 }
 
-/* Suppress the text caret / selection caret that appears when clicking
- * non-interactive elements (SVG chart labels, headings, sidebar menu labels, etc.).
- * Real form controls keep their native caret; everything else stays click-friendly. */
-input,
-textarea,
-[contenteditable="true"] {
-  caret-color: auto;
+/* ---- Animations ---- */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--shadow-glow-rgb), 0.35); }
+  50%      { box-shadow: 0 0 0 6px rgba(var(--shadow-glow-rgb), 0); }
 }
 
-h1, h2, h3, h4, h5, h6,
-p, span, label, li, dt, dd,
-svg, svg text, div {
-  caret-color: transparent;
-  -webkit-user-select: none;
-  user-select: none;
+.anim-fade-in      { animation: fadeIn 0.6s cubic-bezier(.3,.1,.1,1) both; }
+.anim-fade-in-up   { animation: fadeInUp 0.6s cubic-bezier(.3,.1,.1,1) both; }
+.anim-slide-left   { animation: slideInLeft 0.5s cubic-bezier(.3,.1,.1,1) both; }
+.anim-pulse-glow   { animation: pulseGlow 2.4s ease-in-out infinite; }
+
+/* ---- Gradient text helper ---- */
+.text-gradient {
+  background: linear-gradient(135deg, var(--gradient-text-from) 0%, var(--gradient-text-mid) 40%, var(--gradient-text-to) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-*:focus {
-  outline: none !important;
+/* ---- Scrollbar polish (subtle, dark) ---- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .anim-fade-in,
+  .anim-fade-in-up,
+  .anim-slide-left,
+  .anim-pulse-glow {
+    animation: none !important;
+  }
 }

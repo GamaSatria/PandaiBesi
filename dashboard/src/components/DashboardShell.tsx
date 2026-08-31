@@ -34,7 +34,9 @@ export function DashboardShell({ data }: { data: DashboardData }) {
         <MobileTabs active={active} onChange={setActive} />
 
         <main className="flex-1 overflow-y-auto px-3 py-4 sm:px-5 sm:py-6 md:px-6 md:py-8 lg:px-10 lg:py-10">
-          <div className="mx-auto max-w-7xl">{section}</div>
+          <div key={active} className="mx-auto max-w-7xl anim-fade-in">
+            {section}
+          </div>
         </main>
       </div>
     </div>

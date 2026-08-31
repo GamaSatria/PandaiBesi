@@ -1,127 +1,57 @@
 // Data layer for Dashboard Evaluasi Layanan PDBK
-// Loads from Google Sheets when env vars are configured, otherwise falls back to demo data.
-//
-// Set:
-//   GOOGLE_SHEET_ID   (spreadsheet id, found in the sheet URL)
-//   GOOGLE_SHEET_TAB  (optional, defaults to first tab)
-//   GOOGLE_SERVICE_ACCOUNT_JSON  (service-account JSON, base64 OR raw)
-// See README for the one-time Google Cloud setup.
+// Loads from Google Sheets via an Apps Script Web App URL.
+// Per-tab fetch: Guru/Form Responses 1, Kepsek/Form Responses 2,
+// Ortu/Form Responses 3, Siswa/Form Responses 4. Override tab names
+// via GURU_TAB / KEPSEK_TAB / ORTU_TAB / SISWA_TAB in dashboard/.env.local.
 
 import "server-only";
 import type { DashboardData } from "./types";
 export type { DashboardData, GuruData, KepsekData, OrtuData, SiswaData } from "./types";
 
-// ---------- Demo data (visible when no Google Sheets is configured) ----------
+// ==========================================
+// DATA DEMO FALLBACK
+// ==========================================
 const DEMO: DashboardData = {
   guru: {
     totalResponden: 42,
-    sebaranKelas: [
-      { kelas: "Kelas 1", jumlah: 6 },
-      { kelas: "Kelas 2", jumlah: 7 },
-      { kelas: "Kelas 3", jumlah: 8 },
-      { kelas: "Kelas 4", jumlah: 9 },
-      { kelas: "Kelas 5", jumlah: 7 },
-      { kelas: "Kelas 6", jumlah: 5 },
-    ],
-    capaianKeterampilan: [
-      { skill: "Komunikasi verbal/non-verbal", jumlah: 31 },
-      { skill: "Interaksi sosial dengan teman", jumlah: 27 },
-      { skill: "Kemandirian hidup sehari-hari", jumlah: 24 },
-      { skill: "Motorik halus (menulis, menggambar)", jumlah: 19 },
-      { skill: "Literasi & numerasi dasar", jumlah: 18 },
-      { skill: "Regulasi emosi", jumlah: 16 },
-    ],
-    kebutuhanPendampingan: [
-      "Pelatihan strategi komunikasi Augmentative and Alternative Communication (AAC)",
-      "Pendampingan psikolog untuk regulasi emosi peserta didik",
-      "Workshop differensiasi pembelajaran untuk kelas inklusif",
-      "Bantuan alat bantu motorik dan adaptif di kelas",
-      "Pendampingan rutin dari guru sombra (shadow teacher)",
-    ],
+    sebaranKelas: [{ kelas: "Kelas 1", jumlah: 6 }],
+    capaianKeterampilan: [{ skill: "Komunikasi", jumlah: 31 }],
+    kebutuhanPendampingan: ["Belum ada data"],
   },
   kepsek: {
-    totalResponden: 18,
-    sebaranJenjang: [
-      { name: "PAUD", value: 3 },
-      { name: "SD", value: 7 },
-      { name: "SMP", value: 4 },
-      { name: "SMA", value: 2 },
-      { name: "SMK", value: 1 },
-      { name: "Kesetaraan", value: 1 },
-    ],
-    dampakProgram: [
-      { aspek: "Iklim Inklusif", sebelum: 35, sesudah: 78 },
-      { aspek: "Kesiapan Guru", sebelum: 42, sesudah: 81 },
-      { aspek: "Keterlibatan Orang Tua", sebelum: 50, sesudah: 75 },
-      { aspek: "Aksesibilitas Sarana", sebelum: 30, sesudah: 65 },
-      { aspek: "Hasil Belajar PDBK", sebelum: 38, sesudah: 72 },
-    ],
-    saran: [
-      "Perluas pelatihan sensoris integrasi untuk guru kelas.",
-      "Sediakan anggaran rutin untuk alat bantu adaptif.",
-      "Bentuk komunitas praktik (CoP) antar sekolah inklusif.",
-      "Libatkan psikolog sekolah secara berkala.",
-      "Dorong kebijakan zonasi inklusif di dinas pendidikan.",
-    ],
+    totalResponden: 12,
+    sebaranJenjang: [{ name: "SD", value: 5 }],
+    dampakProgram: [{ aspek: "Iklim Inklusif", sebelum: 45, sesudah: 82 }],
+    saran: ["Belum ada data"],
   },
   ortu: {
-    totalResponden: 56,
-    capaianManfaat: [
-      { aspek: "Keterbukaan guru menerima kondisi anak", nilai: 88 },
-      { aspek: "Kenyamanan anak di lingkungan sekolah", nilai: 82 },
-      { aspek: "Kemajuan kemampuan komunikasi anak", nilai: 74 },
-      { aspek: "Dukungan sekolah terhadap kebutuhan khusus", nilai: 79 },
-      { aspek: "Keterlibatan orang tua dalam rencana belajar", nilai: 71 },
-    ],
-    perubahanPositif: [
-      {
-        judul: "Lebih berani bersosialisasi",
-        cerita:
-          "Anak saya sekarang berani menyapa tetangga dan ikut kegiatan di kelas tanpa dipaksa.",
-      },
-      {
-        judul: "Mulai bisa menulis namanya",
-        cerita:
-          "Setelah 3 bulan pendampingan, motorik halusnya membaik dan ia senang menulis sendiri.",
-      },
-      {
-        judul: "Tidak mudah tantrum",
-        cerita:
-          "Guru mengajarkan teknik regulasi emosi yang kami lanjutkan di rumah.",
-      },
-      {
-        judul: "Mandiri saat makan & berpakaian",
-        cerita:
-          "Pelatihan ADL dari guru sangat membantu kemandirian harian anak.",
-      },
-    ],
+    totalResponden: 38,
+    capaianManfaat: [{ aspek: "Keterbukaan Guru", nilai: 88 }],
+    perubahanPositif: [{ judul: "Testimoni 1", cerita: "Belum ada data" }],
   },
   siswa: {
-    totalResponden: 64,
-    pengalamanBelajar: [
-      { aspek: "Kesenangan belajar di sekolah", nilai: 86 },
-      { aspek: "Keberanian bertanya", nilai: 72 },
-      { aspek: "Merasa aman & diterima teman", nilai: 90 },
-      { aspek: "Senang bekerja kelompok", nilai: 78 },
-      { aspek: "Percaya diri tampil di depan kelas", nilai: 68 },
-    ],
-    halDisukai: [
-      "belajar bersama teman",
-      "menggambar",
-      "bermain di luar kelas",
-      "pelajaran musik",
-      "kegiatan olahraga",
-      "kebun sekolah",
-      "perpustakaan",
-      "waktu istirahat bersama",
-    ],
+    totalResponden: 45,
+    pengalamanBelajar: [{ aspek: "Kesenangan", nilai: 90 }],
+    halDisukai: ["belajar", "bermain", "teman"],
   },
 };
 
-// ---------- Google Sheets adapter ----------
-// Expected sheet layout (one row per response):
-//   Row 1 headers — used to detect column index by header name.
-// The transformers below split comma-separated checkbox cells (per PRD note).
+// ==========================================
+// HELPER FUNCTIONS
+// ==========================================
+function col(rows: string[][], headerName: string): string[] {
+  if (!rows || rows.length === 0) return [];
+  const headerRow = rows[0];
+  // Normalisasi whitespace: trim + collapse multiple spaces jadi 1.
+  // Header Google Form kadang punya spasi ganda yang tidak hilang hanya
+  // dengan .trim() — sebelumnya loader gagal match header "perguruan tinggi  ?"
+  // (2 spasi) dan jatuh ke DEMO fallback.
+  const norm = (s: string) => s.replace(/\s+/g, " ").trim();
+  const index = headerRow.findIndex((h) => norm(h) === norm(headerName));
+  if (index === -1) return [];
+  return rows.slice(1).map((row) => row[index]);
+}
+
 function splitList(v: string | undefined): string[] {
   return (v ?? "")
     .split(",")
@@ -129,141 +59,292 @@ function splitList(v: string | undefined): string[] {
     .filter(Boolean);
 }
 
-function countBy(values: string[]): Record<string, number> {
-  return values.reduce<Record<string, number>>((acc, v) => {
-    acc[v] = (acc[v] ?? 0) + 1;
+// Filter placeholder umum dari field free-text Guru "Pendampingan yang masih
+// dibutuhkan". .filter(Boolean) hanya membuang string kosong, tapi sheet bisa
+// berisi placeholder seperti "-", "--", ".", "n/a", atau whitespace-only yang
+// lolos filter dan tampil sebagai item invalid di list. Hanya dipakai untuk
+// kebutuhanPendampingan (section Guru) -- section lain dibiarkan apa adanya.
+function isValidKebutuhan(s: string): boolean {
+  const t = s.trim();
+  if (!t) return false;
+  if (/^[-.\u2026]+$/.test(t)) return false; // "-", "--", ".", "..." (ellipsis char)
+  if (/^(n\/?a|tidak ada|kosong|null|none|-)$/i.test(t)) return false;
+  return true;
+}
+
+function countFreq(arr: string[], keyName: string) {
+  const counts = arr.reduce<Record<string, number>>((acc, val) => {
+    if (!val) return acc;
+    acc[val] = (acc[val] || 0) + 1;
     return acc;
   }, {});
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => ({ [keyName]: k, jumlah: v }));
 }
 
-async function fetchSheetRows(): Promise<string[][]> {
-  const { google } = await import("googleapis");
-  const sheetId = process.env.GOOGLE_SHEET_ID;
-  const tab = process.env.GOOGLE_SHEET_TAB ?? "0";
-  const rawCreds =
-    process.env.GOOGLE_SERVICE_ACCOUNT_JSON ??
-    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON ??
-    "";
-  if (!sheetId || !rawCreds) throw new Error("Sheets not configured");
-
-  const creds = JSON.parse(
-    Buffer.from(rawCreds, "base64").toString("utf8"),
-  );
-  const auth = new google.auth.GoogleAuth({
-    credentials: creds,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+// Sort rows by kelas label natural (Kelas 1, Kelas 2, ..., Kelas 10).
+// Baris yang tidak berprefix "Kelas " ditaruh di akhir sort alfabetis.
+// Hanya dipakai untuk sebaranKelas (section Guru) -- section lain dibiarkan
+// apa adanya (mengikuti urutan countFreq by-count-descending).
+function sortByKelas<T extends { kelas: string }>(rows: T[]): T[] {
+  const re = /^kelas\s+(\d+)/i;
+  return [...rows].sort((a, b) => {
+    const ma = a.kelas.match(re);
+    const mb = b.kelas.match(re);
+    if (ma && mb) return Number(ma[1]) - Number(mb[1]);
+    if (ma) return -1; // baris berprefix "Kelas " duluan
+    if (mb) return 1;
+    return a.kelas.localeCompare(b.kelas);
   });
-  const sheets = google.sheets({ version: "v4", auth });
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId,
-    range: tab,
-  });
-  return (res.data.values as string[][]) ?? [];
 }
 
-function col(rows: string[][], header: string): string[] {
-  if (rows.length === 0) return [];
-  const idx = rows[0].indexOf(header);
-  if (idx < 0) return [];
-  return rows.slice(1).map((r) => r[idx] ?? "");
+// Potong label panjang jadi ~3 kata + "..." agar pas di radar (mobile &
+// desktop) dan tetap terbaca di Stat hint & bar chart skill.
+function formatChartLabel(text: string) {
+  if (!text) return "";
+  const t = text.trim();
+  const words = t.split(/\s+/);
+  if (words.length <= 3) return t;
+  return words.slice(0, 3).join(" ") + "...";
 }
 
-export async function loadDashboardData(): Promise<DashboardData> {
-  try {
-    const rows = await fetchSheetRows();
-    if (rows.length < 2) return DEMO;
+// 5 opsi tetap dari pertanyaan Google Form "Hal apakah yang terjadi di sekolah…".
+// Digunakan sebagai master list agar chart menampilkan tepat 5 baris (sesuai
+// jumlah opsi form), terlepas dari variasi penulisan jawaban responden.
+const KEPSEK_DAMPAK_OPTIONS = [
+  "Pendampingan membantu sekolah mengidentifikasi kebutuhan peserta didik berkebutuhan khusus",
+  "Guru di sekolah saya lebih siap melayani peserta didik berkebutuhan khusus setelah pendampingan",
+  "Program pendampingan membantu penyusunan program layanan bagi peserta didik berkebutuhan khusus",
+  "Kolaborasi antara sekolah, orang tua, dan pihak pendamping semakin baik",
+  "Pendampingan membantu penyelesaian masalah yang dihadapi sekolah terkait pendidikan inklusif",
+] as const;
 
-    // ---- Guru ----
-    const guruKelas = col(rows, "Kelas yang diajar");
-    const guruSkill = splitList(col(rows, "Keterampilan baru yang dikuasai").join("|"))
-      .filter((v) => v.includes(",") ? false : true); // noop safeguard
-    // safer: split the joined column directly
-    const skillsFlat = col(rows, "Keterampilan baru yang dikuasai")
-      .flatMap(splitList);
-    const kebutuhan = col(rows, "Pendampingan yang masih dibutuhkan");
+// Normalisasi string untuk matching toleran: lowercase + hapus semua whitespace
+// + punctuation + diacritics. Supaya "Pendampingan  membantu…" (spasi ganda) dan
+// "Pendampingan membantu…" dipetakan ke opsi yang sama.
+function normalizeForMatch(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "");
+}
 
-    // ---- Kepsek ----
-    const jenjang = col(rows, "Jenjang sekolah");
-    // dampak is multi-aspek Likert (5 kolom: Sebelum/Sesudah per aspek)
-    const aspekNames = [
-      "Iklim Inklusif",
-      "Kesiapan Guru",
-      "Keterlibatan Orang Tua",
-      "Aksesibilitas Sarana",
-      "Hasil Belajar PDBK",
-    ];
-    const dampak = aspekNames.map((a) => ({
-      aspek: a,
-      sebelum: Number(col(rows, `Sebelum - ${a}`)[0] ?? 0) || 0,
-      sesudah: Number(col(rows, `Sesudah - ${a}`)[0] ?? 0) || 0,
-    }));
-    const saran = col(rows, "Saran perbaikan").filter(Boolean);
-
-    // ---- Ortu ----
-    const ortuAspek = [
-      "Keterbukaan guru menerima kondisi anak",
-      "Kenyamanan anak di lingkungan sekolah",
-      "Kemajuan kemampuan komunikasi anak",
-      "Dukungan sekolah terhadap kebutuhan khusus",
-      "Keterlibatan orang tua dalam rencana belajar",
-    ];
-    const ortuManfaat = ortuAspek.map((a) => ({
-      aspek: a,
-      nilai: Number(col(rows, `Nilai - ${a}`)[0] ?? 0) || 0,
-    }));
-    const perubahan = col(rows, "Perubahan positif pada anak")
-      .filter(Boolean)
-      .map((cerita, i) => ({ judul: `Testimoni ${i + 1}`, cerita }));
-
-    // ---- Siswa ----
-    const siswaAspek = [
-      "Kesenangan belajar di sekolah",
-      "Keberanian bertanya",
-      "Merasa aman & diterima teman",
-      "Senang bekerja kelompok",
-      "Percaya diri tampil di depan kelas",
-    ];
-    const siswaPengalaman = siswaAspek.map((a) => ({
-      aspek: a,
-      nilai: Number(col(rows, `Nilai - ${a}`)[0] ?? 0) || 0,
-    }));
-    const halDisukai = col(rows, "Hal yang paling disukai")
-      .flatMap(splitList);
-
-    return {
-      guru: {
-        totalResponden: rows.length - 1,
-        sebaranKelas: Object.entries(countBy(guruKelas)).map(([kelas, jumlah]) => ({
-          kelas,
-          jumlah,
-        })),
-        capaianKeterampilan: Object.entries(countBy(skillsFlat))
-          .map(([skill, jumlah]) => ({ skill, jumlah }))
-          .sort((a, b) => b.jumlah - a.jumlah),
-        kebutuhanPendampingan: kebutuhan.filter(Boolean),
-      },
-      kepsek: {
-        totalResponden: rows.length - 1,
-        sebaranJenjang: Object.entries(countBy(jenjang)).map(([name, value]) => ({
-          name,
-          value,
-        })),
-        dampakProgram: dampak,
-        saran,
-      },
-      ortu: {
-        totalResponden: rows.length - 1,
-        capaianManfaat: ortuManfaat,
-        perubahanPositif: perubahan,
-      },
-      siswa: {
-        totalResponden: rows.length - 1,
-        pengalamanBelajar: siswaPengalaman,
-        halDisukai,
-      },
-    };
-  } catch {
-    // Fallback when env not configured or fetch fails
-    return DEMO;
+// Petakan string jawaban mentah ke SEMUA opsi master yang cocok.
+// Return array opsi yang match (kosong jika tidak ada yang mirip).
+// Substring match dua arah: cocok jika norm jawaban adalah substring dari
+// norm opsi, atau sebaliknya. Untuk pertanyaan checkbox CSV multi-select,
+// jawaban responden biasanya concatenation semua opsi dicentang, sehingga
+// norm jawaban adalah superstring dari norm setiap opsi dicentang.
+function mapToCanonicalOptions(raw: string): string[] {
+  const norm = normalizeForMatch(raw);
+  if (!norm) return [];
+  const matches: string[] = [];
+  for (const opt of KEPSEK_DAMPAK_OPTIONS) {
+    const optNorm = normalizeForMatch(opt);
+    if (optNorm.includes(norm) || norm.includes(optNorm)) matches.push(opt);
   }
+  return matches;
+}
+
+async function fetchSheetRows(tabName: string): Promise<string[][]> {
+  const url = `${process.env.APPS_SCRIPT_URL}?sheet=${encodeURIComponent(tabName)}`;
+  let response: Response;
+  try {
+    response = await fetch(url, { cache: "no-store" });
+  } catch (e: unknown) {
+    throw new Error(`network: ${(e as Error)?.message || e}`);
+  }
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const data = await response.json();
+  if (data && data.error) throw new Error(String(data.error));
+
+  if (Array.isArray(data) && data.length > 0 && typeof data[0] === "object" && !Array.isArray(data[0])) {
+    const headers = Object.keys(data[0]);
+    const rows: string[][] = [headers];
+    for (const obj of data) {
+      rows.push(headers.map((h) => String(obj[h] || "")));
+    }
+    return rows;
+  }
+  return [];
+}
+
+// ==========================================
+// MAIN LOADER
+// ==========================================
+export async function loadDashboardData(): Promise<DashboardData> {
+  const scriptUrl = process.env.APPS_SCRIPT_URL;
+  if (!scriptUrl) return DEMO;
+
+  const tabGuru = process.env.GURU_TAB || "Form Responses 1";
+  const tabKepsek = process.env.KEPSEK_TAB || "Form Responses 2";
+  const tabOrtu = process.env.ORTU_TAB || "Form Responses 3";
+  const tabSiswa = process.env.SISWA_TAB || "Form Responses 4";
+
+  const fetchOne = async (label: string, tab: string) => {
+    try {
+      const rows = await fetchSheetRows(tab);
+      console.log(`[ok ] ${label} ("${tab}"): ${Math.max(0, rows.length - 1)} baris`);
+      return rows;
+    } catch (e: unknown) {
+      console.warn(`[err] ${label} ("${tab}"): ${(e as Error)?.message || e}`);
+      return [];
+    }
+  };
+
+  const [guruRows, kepsekRows, ortuRows, siswaRows] = await Promise.all([
+    fetchOne("Guru  ", tabGuru),
+    fetchOne("Kepsek", tabKepsek),
+    fetchOne("Ortu  ", tabOrtu),
+    fetchOne("Siswa ", tabSiswa),
+  ]);
+
+  // 1. DATA GURU
+  let guruData = DEMO.guru;
+  if (guruRows.length >= 2) {
+    const keterampilanRaw = col(
+      guruRows,
+      "Ketrampilan mana sajakah yang sudah dapat Ibu Bapak Guru lakukan setelah adanya program dari perguruan tinggi dalam melayani PDBK?"
+    ).flatMap(splitList);
+
+    guruData = {
+      totalResponden: guruRows.length - 1,
+      // countFreq menghasilkan urutan by-count-desc; sortByKelas mengurutkan ulang
+      // berdasarkan nomor kelas natural (Kelas 1, 2, 3, ..., 6) agar X-axis
+      // chart "Sebaran Guru per Kelas" tampil rapi dari kiri ke kanan.
+      sebaranKelas: sortByKelas(
+        countFreq(col(guruRows, "Mengajar"), "kelas") as unknown as { kelas: string; jumlah: number }[],
+      ),
+      // FIX MISMATCH: field name must be "skill" (HorizontalBarChart nameKey + mostSkill helper).
+      // skillFull menyimpan teks asli (sebelum di-truncate oleh formatChartLabel)
+      // agar HorizontalBarChart bisa menampilkan tooltip full text saat hover.
+      capaianKeterampilan: countFreq(keterampilanRaw, "skill").map((item) => ({
+        skill: formatChartLabel(item.skill as string),
+        skillFull: String(item.skill).trim(),
+        jumlah: item.jumlah,
+      })),
+      // Filter placeholder umum ("-", "--", ".", "n/a", whitespace-only, dll)
+      // BUKAN hanya string kosong, supaya kotak stat "Total Kebutuhan" sinkron
+      // dengan list "Pendampingan yang Masih Dibutuhkan". Filter ini HANYA
+      // dipakai untuk kebutuhanPendampingan (section Guru) -- section lain
+      // dibiarkan apa adanya (lihat catatan di helper isValidKebutuhan).
+      kebutuhanPendampingan: col(guruRows, "Pendampingan apa yang masih dibutuhkan?").filter(isValidKebutuhan),
+    };
+  }
+
+  // 2. DATA KEPALA SEKOLAH
+  let kepsekData = DEMO.kepsek;
+  if (kepsekRows.length >= 2) {
+    // Sheet tidak punya data "Sebelum". sebelum = 0 -> radar tampilkan 1 polygon (sesudah/capaian).
+    // Total responden kepsek (exclude header) untuk konversi count -> persen.
+    const totalKepsek = kepsekRows.length - 1;
+    // Ambil string jawaban per row responden (CSV multi-select, JANGAN split
+    // dulu — lihat catatan BUGFIX di bawah).
+    const halKepsekCol = col(
+      kepsekRows,
+      "Hal apakah yang terjadi di sekolah Ibu Bapak Guru lakukan setelah adanya program dari perguruan tinggi dalam melayani PDBK?"
+    );
+
+    // Petakan setiap jawaban mentah ke salah satu dari 5 opsi master form,
+    // lalu hitung frekuensi per opsi. Opsi yang tidak dipilih responden tetap
+    // muncul dengan count=0 agar chart selalu menampilkan tepat 5 baris.
+    //
+    // BUGFIX: Opsi "Kolaborasi antara sekolah, orang tua, dan pihak pendamping"
+    // punya koma INTERNAL di teks opsi itu sendiri. splitList memecah pada setiap
+    // koma, sehingga satu opsi terpecah jadi beberapa token ("Kolaborasi antara
+    // sekolah", "orang tua", "dan pihak pendamping semakin baik") dan ketiganya
+    // match ke opsi yang sama via substring — menyebabkan over-counting (mis.
+    // "Kolaborasi" jadi 3 padahal respondennya hanya 2). Solusi: JANGAN split
+    // untuk pertanyaan checkbox ini; match string utuh per row responden dulu.
+    // splitList hanya dipakai sebagai fallback kalau match utuh gagal.
+    const countMap = new Map<string, number>();
+    for (const opt of KEPSEK_DAMPAK_OPTIONS) countMap.set(opt, 0);
+    for (const row of halKepsekCol) {
+      if (!row || !row.trim()) continue;
+      for (const canon of mapToCanonicalOptions(row)) {
+        countMap.set(canon, (countMap.get(canon) ?? 0) + 1);
+      }
+    }
+
+    const dampakProgram = KEPSEK_DAMPAK_OPTIONS.map((opt) => {
+      const count = countMap.get(opt) ?? 0;
+      return {
+        aspek: formatChartLabel(opt),
+        aspekFull: opt,
+        sebelum: 0,
+        sebelumCount: 0,
+        sesudah: totalKepsek > 0 ? Math.round((count / totalKepsek) * 100) : 0,
+        sesudahCount: count,
+      };
+    });
+
+    kepsekData = {
+      totalResponden: kepsekRows.length - 1,
+      // FIX MISMATCH: DonutChart expects {name, value}.
+      sebaranJenjang: countFreq(col(kepsekRows, "Jenjang"), "name").map((item) => ({
+        name: String(item.name),
+        value: item.jumlah,
+      })),
+      dampakProgram: dampakProgram.length > 0 ? dampakProgram : DEMO.kepsek.dampakProgram,
+      saran: col(kepsekRows, "Saran untuk perbaikan program pendampingan").filter(Boolean),
+    };
+  }
+
+  // 3. DATA ORANG TUA
+  let ortuData = DEMO.ortu;
+  if (ortuRows.length >= 2) {
+    // Konversi frekuensi -> persentase terhadap total responden ortu (renderer Stat pakai %).
+    const totalOrtu = ortuRows.length - 1;
+    const perolehOrtuRaw = col(
+      ortuRows,
+      "Hal apakah yang Ibu Bapak peroleh setelah mendapat layanan asesmen dari perguruan tinggi ?"
+    ).flatMap(splitList);
+
+    const capaianManfaat = countFreq(perolehOrtuRaw, "aspek").map((item) => ({
+      aspek: formatChartLabel(item.aspek as string),
+      aspekFull: String(item.aspek).trim(),
+      nilai: Math.round((item.jumlah / Math.max(1, totalOrtu)) * 100),
+    }));
+
+    ortuData = {
+      totalResponden: totalOrtu,
+      capaianManfaat: capaianManfaat.length > 0 ? capaianManfaat : DEMO.ortu.capaianManfaat,
+      // FIX MISMATCH: renderer expects {judul, cerita}[] not string[].
+      perubahanPositif: col(ortuRows, "Perubahan positif yang terlihat pada anak setelah program pendampingan")
+        .filter(Boolean)
+        .map((cerita, index) => ({
+          judul: `Testimoni ${index + 1}`,
+          cerita,
+        })),
+    };
+  }
+
+  // 4. DATA SISWA
+  let siswaData = DEMO.siswa;
+  if (siswaRows.length >= 2) {
+    // Konversi frekuensi -> persentase terhadap total responden siswa.
+    const totalSiswa = siswaRows.length - 1;
+    const pengalamanSiswaRaw = col(
+      siswaRows,
+      "Pengalaman belajar setelah dapat layanan asesmen"
+    ).flatMap(splitList);
+
+    const pengalamanBelajar = countFreq(pengalamanSiswaRaw, "aspek").map((item) => ({
+      aspek: formatChartLabel(item.aspek as string),
+      aspekFull: String(item.aspek).trim(),
+      nilai: Math.round((item.jumlah / Math.max(1, totalSiswa)) * 100),
+    }));
+
+    siswaData = {
+      totalResponden: totalSiswa,
+      pengalamanBelajar: pengalamanBelajar.length > 0 ? pengalamanBelajar : DEMO.siswa.pengalamanBelajar,
+      halDisukai: col(siswaRows, "Hal yang paling saya sukai di sekolah")
+        .flatMap(splitList)
+        .filter(Boolean),
+    };
+  }
+
+  return { guru: guruData, kepsek: kepsekData, ortu: ortuData, siswa: siswaData };
 }

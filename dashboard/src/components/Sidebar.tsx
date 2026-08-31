@@ -1,25 +1,155 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import type { DashboardData, GuruData, KepsekData, OrtuData, SiswaData } from "@/lib/types";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList, PieChart, Pie, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend } from "recharts";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import type { GuruData, KepsekData, OrtuData, SiswaData } from "@/lib/types";
+import { WordCloud } from "@/components/WordCloud";
+import { useTheme } from "@/components/ThemeProvider";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  LabelList,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Legend,
+  Pie,
+  PieChart,
+} from "recharts";
 
-const COLOR_PALETTE = {
-  primary: "#c53030",
-  purple: "#805ad5",
-  green: "#5f8d74",
-  orange: "#c58b39",
-  pink: "#d9829b",
+type ChartTokens = {
+  palette: string[];
+  axis: string;
+  axisSecondary: string;
+  label: string;
+  grid: string;
+  cursor: string;
+  tooltipBg: string;
+  tooltipBorder: string;
+  tooltipText: string;
+  radarPrimary: string;
+  radarSecondary: string;
 };
 
-type DashboardKey = keyof DashboardData;
+const DARK_TOKENS: ChartTokens = {
+  palette: ["#f43f5e", "#a78bfa", "#38bdf8", "#34d399", "#fbbf24", "#f472b6", "#60a5fa", "#facc15"],
+  axis: "#cbd5e1",
+  axisSecondary: "#94a3b8",
+  label: "#e8e8ec",
+  grid: "rgba(255,255,255,0.08)",
+  cursor: "rgba(255,255,255,0.04)",
+  tooltipBg: "rgba(15,15,23,0.92)",
+  tooltipBorder: "rgba(255,255,255,0.12)",
+  tooltipText: "#e8e8ec",
+  radarPrimary: "#f43f5e",
+  radarSecondary: "#a78bfa",
+};
+
+const LIGHT_TOKENS: ChartTokens = {
+  palette: ["#e11d48", "#7c3aed", "#0284c7", "#059669", "#d97706", "#db2777", "#2563eb", "#ca8a04"],
+  axis: "#475569",
+  axisSecondary: "#94a3b8",
+  label: "#1e293b",
+  grid: "rgba(15,15,23,0.08)",
+  cursor: "rgba(15,15,23,0.04)",
+  tooltipBg: "rgba(255,255,255,0.96)",
+  tooltipBorder: "rgba(15,15,23,0.12)",
+  tooltipText: "#0f172a",
+  radarPrimary: "#e11d48",
+  radarSecondary: "#7c3aed",
+};
+
+/** Returns the chart tokens for the currently-applied theme (from <html> class). */
+function useChartTheme(): ChartTokens {
+  // Subscribe to the <html> class so we re-read tokens after every theme change.
+  // We can't use useSyncExternalStore cleanly here because we need to read multiple
+  // values from getComputedStyle, so we use a snapshot + subscribe pattern manually
+  // and update via a state that the MutationObserver triggers.
+  const subscribe = useCallback((cb: () => void) => {
+    if (typeof document === "undefined") return () => {};
+    const obs = new MutationObserver(cb);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, []);
+
+  const getThemeKey = useCallback(
+    () => (typeof document === "undefined" ? "dark" : document.documentElement.classList.contains("theme-light") ? "light" : "dark"),
+    [],
+  );
+
+  // useSyncExternalStore gives us a clean re-render trigger without setState-in-effect.
+  useSyncExternalStore(
+    subscribe,
+    getThemeKey,
+    () => "dark",
+  );
+
+  // We don't actually need the returned value (we read tokens directly) —
+  // the subscription is what matters for re-rendering. But TS needs us to use it.
+  // We intentionally ignore the return here.
+  void getThemeKey;
+
+  if (typeof document === "undefined") return DARK_TOKENS;
+  return document.documentElement.classList.contains("theme-light") ? LIGHT_TOKENS : DARK_TOKENS;
+}
+
+/** Returns true saat viewport width < breakpoint (default 640px = Tailwind sm:).
+ *  Dipakai chart components untuk compact mode (YAxis lebih kecil, font lebih
+ *  besar) sehingga bar chart di mobile tidak terlalu kecil. */
+function useChartMode(breakpoint = 640): boolean {
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const update = () => setCompact(window.innerWidth < breakpoint);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [breakpoint]);
+  return compact;
+}
+
+function ThemeToggle() {
+  const { theme, toggle } = useTheme();
+  const isDark = theme === "dark";
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={isDark ? "Aktifkan mode terang" : "Aktifkan mode gelap"}
+      title={isDark ? "Mode terang" : "Mode gelap"}
+      className="group relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition active:scale-95"
+      style={{
+        background: "var(--sidebar-active-bg)",
+        borderColor: "var(--sidebar-border)",
+        color: "var(--sidebar-text)",
+      }}
+    >
+      {isDark ? (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+        </svg>
+      ) : (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 type SectionKey = "guru" | "kepsek" | "ortu" | "siswa";
 
 const SECTIONS: { key: SectionKey; label: string; shortLabel: string; emoji: string }[] = [
-  { key: "guru",   label: "Instrumen untuk Guru",          shortLabel: "Guru",          emoji: "👩‍🏫" },
-  { key: "kepsek", label: "Instrumen untuk Kepala Sekolah", shortLabel: "Kepsek",       emoji: "🏫" },
-  { key: "ortu",   label: "Instrumen untuk Orang Tua",    shortLabel: "Orang Tua",     emoji: "👨‍👩‍👧" },
-  { key: "siswa",  label: "Instrumen untuk Peserta Didik", shortLabel: "Peserta Didik", emoji: "🎓" },
+  { key: "guru", label: "Instrumen untuk Guru", shortLabel: "Guru", emoji: "👨‍🏫" },
+  { key: "kepsek", label: "Instrumen untuk Kepala Sekolah", shortLabel: "Kepsek", emoji: "🎓" },
+  { key: "ortu", label: "Instrumen untuk Orang Tua", shortLabel: "Orang Tua", emoji: "👨‍👩‍👧" },
+  { key: "siswa", label: "Instrumen untuk Peserta Didik", shortLabel: "Peserta Didik", emoji: "🎒" },
 ];
 
 export function Sidebar({
@@ -30,21 +160,35 @@ export function Sidebar({
   onChange: (k: SectionKey) => void;
 }) {
   return (
-    <aside className="hidden md:flex md:w-64 shrink-0 flex-col bg-seigaiha text-slate-100">
-      <div className="flex items-center gap-3 border-b border-white/10 px-6 py-6">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#c53030] text-lg font-bold text-white shadow-sm">
+    <aside
+      className="relative hidden md:flex md:w-72 shrink-0 flex-col bg-sidebar border-r"
+      style={{
+        color: "var(--sidebar-text)",
+        borderColor: "var(--sidebar-border-soft)",
+      }}
+    >
+      <div
+        className="flex items-center gap-3 border-b px-6 py-6"
+        style={{ borderColor: "var(--sidebar-border)" }}
+      >
+        <div
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-lg font-bold anim-pulse-glow"
+          style={{ background: "var(--accent)", color: "var(--text-on-accent)" }}
+        >
           D
         </div>
-        <div className="leading-tight">
-          <div className="font-semibold tracking-wide">Dashboard</div>
-          <div className="text-xs text-slate-400">Evaluasi Layanan PDBK</div>
+        <div className="leading-tight flex-1 min-w-0">
+          <div className="font-semibold tracking-wide" style={{ color: "var(--text-primary)" }}>Dashboard</div>
+          <div style={{ color: "var(--sidebar-text-muted)" }} className="text-xs">Evaluasi Layanan PDBK</div>
         </div>
+        <ThemeToggle />
       </div>
-
-      <div className="px-4 py-4 text-xs uppercase tracking-widest text-slate-400">
+      <div
+        className="px-4 pt-5 pb-2 text-[10px] uppercase tracking-[0.2em]"
+        style={{ color: "var(--sidebar-text-faint)" }}
+      >
         Menu
       </div>
-
       <nav className="flex flex-col gap-1 px-2">
         {SECTIONS.map((s) => {
           const isActive = active === s.key;
@@ -52,11 +196,33 @@ export function Sidebar({
             <button
               key={s.key}
               onClick={() => onChange(s.key)}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${
+              className="group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition border-l-2"
+              style={
                 isActive
-                  ? "bg-[#c53030] text-white shadow-sm"
-                  : "text-slate-300 hover:bg-white/10"
-              }`}
+                  ? {
+                      background: "var(--sidebar-active-bg)",
+                      color: "var(--text-primary)",
+                      borderLeftColor: "var(--accent)",
+                      paddingLeft: 10,
+                    }
+                  : {
+                      background: "transparent",
+                      color: "var(--sidebar-text-muted)",
+                      borderLeftColor: "transparent",
+                    }
+              }
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.background = "var(--sidebar-hover-bg)";
+                  e.currentTarget.style.color = "var(--text-primary)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "var(--sidebar-text-muted)";
+                }
+              }}
             >
               <span className="text-lg">{s.emoji}</span>
               <span className="truncate">{s.label}</span>
@@ -64,10 +230,17 @@ export function Sidebar({
           );
         })}
       </nav>
-
-      <div className="mt-auto border-t border-white/10 px-6 py-4 text-xs text-slate-400">
-        v1.0.0 · Data dari Google Forms
+      <div
+        className="mt-auto border-t px-6 py-4 text-xs"
+        style={{
+          borderColor: "var(--sidebar-border)",
+          color: "var(--sidebar-text-faint)",
+        }}
+      >
+        v1.0.0 dari Google Forms
       </div>
+      {/* depth meter — abysswalker-style decorative rail on the right edge */}
+      <div className="depth-rail pointer-events-none absolute right-0 top-12 bottom-12 w-px opacity-70" />
     </aside>
   );
 }
@@ -82,7 +255,6 @@ export function MobileTabs({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
-  // Close dropdown when clicking outside or pressing Escape
   useEffect(() => {
     if (!open) return;
     const onClick = (e: MouseEvent) => {
@@ -102,47 +274,61 @@ export function MobileTabs({
   const current = SECTIONS.find((s) => s.key === active) ?? SECTIONS[0];
 
   return (
-    <div className="md:hidden shrink-0 bg-seigaiha text-slate-100">
-      <div ref={ref} className="relative flex items-center gap-3 border-b border-white/10 px-3 py-3">
-        {/* Hamburger dropdown trigger */}
+    <div
+      className="sticky top-0 z-40 md:hidden bg-sidebar border-b"
+      style={{ color: "var(--sidebar-text)", borderColor: "var(--sidebar-border)" }}
+    >
+      <div ref={ref} className="relative flex items-center gap-3 px-3 py-3">
         <button
           type="button"
           aria-label="Buka menu"
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}
-          className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-slate-100 transition hover:bg-white/20 active:scale-95"
+          className="flex h-9 w-9 items-center justify-center rounded-lg transition active:scale-95"
+          style={{
+            background: "var(--sidebar-active-bg)",
+            color: "var(--sidebar-text)",
+            border: "1px solid var(--sidebar-border)",
+          }}
         >
           {open ? (
-            // Close (X) icon
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           ) : (
-            // Hamburger icon
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
               <path d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           )}
         </button>
-
-        {/* Logo + title (centered-ish) */}
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#c53030] text-sm font-bold text-white shadow-sm">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold"
+            style={{ background: "var(--accent)", color: "var(--text-on-accent)" }}
+          >
             D
           </div>
-          <div className="leading-tight">
-            <div className="font-semibold text-sm">Dashboard PDBK</div>
-            <div className="text-[11px] text-slate-400 truncate max-w-[180px]">
+          <div className="leading-tight min-w-0">
+            <div className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>Dashboard PDBK</div>
+            <div
+              className="text-[11px] truncate max-w-[180px]"
+              style={{ color: "var(--sidebar-text-muted)" }}
+            >
               {current.emoji} {current.label}
             </div>
           </div>
         </div>
-
-        {/* Dropdown panel */}
+        <ThemeToggle />
         {open && (
           <div
             role="menu"
-            className="absolute left-2 right-2 top-full z-50 mt-2 overflow-hidden rounded-xl bg-[#1a1f36] shadow-xl ring-1 ring-white/15"
+            className="absolute left-2 right-2 top-full z-50 mt-2 overflow-hidden rounded-xl shadow-2xl"
+            style={{
+              background: "var(--chart-tooltip-bg)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              border: "1px solid var(--chart-tooltip-border)",
+            }}
           >
             <ul className="py-1">
               {SECTIONS.map((s) => {
@@ -156,31 +342,25 @@ export function MobileTabs({
                         onChange(s.key);
                         setOpen(false);
                       }}
-                      className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition ${
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition border-l-2"
+                      style={
                         isActive
-                          ? "bg-[#c53030] text-white"
-                          : "text-slate-200 hover:bg-white/10"
-                      }`}
+                          ? {
+                              background: "var(--sidebar-active-bg)",
+                              color: "var(--text-primary)",
+                              borderLeftColor: "var(--accent)",
+                            }
+                          : {
+                              background: "transparent",
+                              color: "var(--sidebar-text)",
+                              borderLeftColor: "transparent",
+                            }
+                      }
                     >
                       <span className="text-lg" aria-hidden>
                         {s.emoji}
                       </span>
                       <span className="font-medium">{s.label}</span>
-                      {isActive && (
-                        <svg
-                          className="ml-auto"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M5 12l4 4L19 7" />
-                        </svg>
-                      )}
                     </button>
                   </li>
                 );
@@ -198,533 +378,555 @@ export function Card({
   title,
   subtitle,
   children,
-  className = "",
+  action,
 }: {
-  title?: string;
+  title: string;
   subtitle?: string;
   children: React.ReactNode;
-  className?: string;
+  action?: React.ReactNode;
 }) {
   return (
-    <section
-      className={`rounded-2xl border border-[#e8e0d4] bg-[#fffefb] p-5 shadow-washi transition-shadow hover:shadow-washi-hover ${className}`}
-    >
-      {title && (
-        <h2 className="text-base font-semibold tracking-tight text-slate-800">
-          {title}
-        </h2>
-      )}
-      {subtitle && (
-        <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
-      )}
-      <div className={title || subtitle ? "mt-4" : ""}>{children}</div>
+    <section className="rounded-2xl glass p-4 sm:p-5 anim-fade-in-up">
+      <header className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base sm:text-lg font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>{title}</h2>
+          {subtitle ? <p className="mt-0.5 text-xs sm:text-sm" style={{ color: "var(--text-muted)" }}>{subtitle}</p> : null}
+        </div>
+        {action}
+      </header>
+      <div className="divider-thin -mt-1 mb-3" />
+      {children}
     </section>
   );
 }
 
-type StatTone = "torii" | "indigo" | "wisteria" | "matcha" | "amber" | "sumi";
+type Tone = "sumi" | "indigo" | "wisteria" | "torii" | "matcha" | "amber" | "sakura";
 
-const TONE_STYLE: Record<StatTone, { stripe: string; iconBg: string; iconColor: string; gauge: string; deco: string }> = {
-  torii:    { stripe: "stat-stripe-torii",    iconBg: "rgba(197, 48, 48, 0.10)",  iconColor: "#a12626", gauge: "#c53030", deco: "rgba(254, 215, 226, 0.55)" },
-  indigo:   { stripe: "stat-stripe-indigo",   iconBg: "rgba(58, 67, 120, 0.10)",  iconColor: "#3a4378", gauge: "#3a4378", deco: "rgba(199, 210, 254, 0.45)" },
-  wisteria: { stripe: "stat-stripe-wisteria", iconBg: "rgba(128, 90, 213, 0.10)", iconColor: "#553c9a", gauge: "#805ad5", deco: "rgba(233, 216, 253, 0.6)" },
-  matcha:   { stripe: "stat-stripe-matcha",   iconBg: "rgba(47, 133, 90, 0.10)",  iconColor: "#276749", gauge: "#2f855a", deco: "rgba(198, 246, 213, 0.6)" },
-  amber:    { stripe: "stat-stripe-amber",    iconBg: "rgba(183, 121, 31, 0.10)", iconColor: "#744210", gauge: "#b7791f", deco: "rgba(254, 235, 200, 0.6)" },
-  sumi:     { stripe: "stat-stripe-sumi",     iconBg: "rgba(26, 31, 54, 0.10)",   iconColor: "#1a202c", gauge: "#1a1f36", deco: "rgba(226, 232, 240, 0.6)" },
+type ToneStyle = {
+  stripe: string;
+  iconBg: string;
+  iconFg: string;
+  glow: string;
+};
+
+const TONE_STYLES: Record<Tone, ToneStyle> = {
+  sumi:     { stripe: "stat-stripe-sumi",     iconBg: "var(--tone-sumi-icon-bg)",     iconFg: "var(--tone-sumi-icon-text)",     glow: "var(--tone-sumi-glow)" },
+  indigo:   { stripe: "stat-stripe-indigo",   iconBg: "var(--tone-indigo-icon-bg)",   iconFg: "var(--tone-indigo-icon-text)",   glow: "var(--tone-indigo-glow)" },
+  wisteria: { stripe: "stat-stripe-wisteria", iconBg: "var(--tone-wisteria-icon-bg)", iconFg: "var(--tone-wisteria-icon-text)", glow: "var(--tone-wisteria-glow)" },
+  torii:    { stripe: "stat-stripe-torii",    iconBg: "var(--tone-torii-icon-bg)",    iconFg: "var(--tone-torii-icon-text)",    glow: "var(--tone-torii-glow)" },
+  matcha:   { stripe: "stat-stripe-matcha",   iconBg: "var(--tone-matcha-icon-bg)",   iconFg: "var(--tone-matcha-icon-text)",   glow: "var(--tone-matcha-glow)" },
+  amber:    { stripe: "stat-stripe-amber",    iconBg: "var(--tone-amber-icon-bg)",    iconFg: "var(--tone-amber-icon-text)",    glow: "var(--tone-amber-glow)" },
+  sakura:   { stripe: "stat-stripe-sakura",   iconBg: "var(--tone-sakura-icon-bg)",   iconFg: "var(--tone-sakura-icon-text)",   glow: "var(--tone-sakura-glow)" },
 };
 
 export function Stat({
   label,
   value,
   hint,
-  tone = "torii",
+  tone = "sumi",
   icon,
-  percent,
 }: {
   label: string;
   value: string | number;
   hint?: string;
-  tone?: StatTone;
-  icon?: React.ReactNode;
-  percent?: number; // 0..100 — when provided, draw a faint gauge background
+  tone?: Tone;
+  icon?: string;
 }) {
-  const style = TONE_STYLE[tone];
-
-  // Detect a percent-based value automatically if no `percent` prop is passed
-  const autoPercent =
-    typeof percent === "number"
-      ? percent
-      : typeof value === "string" && value.trim().endsWith("%")
-      ? Math.max(0, Math.min(100, parseFloat(value)))
-      : undefined;
-
+  const t = TONE_STYLES[tone] ?? TONE_STYLES.sumi;
   return (
-    <div className="relative flex flex-col h-full overflow-hidden rounded-2xl border border-[#e8e0d4] bg-[#fffefb] p-4 shadow-washi transition hover:shadow-washi-hover">
-      {/* Top color stripe */}
-      <div className={`absolute inset-x-0 top-0 h-1 ${style.stripe}`} />
-
-      <div className="flex items-start justify-between gap-2">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          {label}
-        </div>
-        {icon && (
-          <span
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-base"
-            style={{ backgroundColor: style.iconBg, color: style.iconColor }}
-          >
-            {icon}
-          </span>
-        )}
-      </div>
-
-      <div className="relative mt-1.5 flex items-center justify-between gap-3 min-h-[44px]">
-        <div
-          className="text-3xl font-semibold tracking-tight text-slate-900 leading-none"
-          style={{ fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace" }}
-        >
-          {value}
-        </div>
-      </div>
-
-      {hint && <div className={hint ? "mt-1 text-xs text-slate-500" : "mt-0 text-xs text-slate-500 opacity-0 select-none"} aria-hidden={hint ? undefined : true}>{hint ?? "placeholder"}</div>}
-
-      <div className="mt-auto pt-3">
-        {autoPercent != null ? (
-          <div
-            className="h-2 md:h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80"
-            role="progressbar"
-            aria-valuenow={autoPercent}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label={label}
-          >
-            <div
-              className="h-full rounded-full transition-[width] duration-500"
-              style={{ width: `${autoPercent}%`, backgroundColor: style.gauge }}
-            />
-          </div>
-        ) : (
-          <div className="h-2 md:h-1.5 w-full" aria-hidden />
-        )}
-      </div>
-    </div>
-  );
-}
-
-// --- Chart components ---
-function wrapLabel(value: string, max = 16, maxLines = 3) {
-  const words = value.split(/\s+/);
-  const lines: string[] = [];
-  let line = "";
-  for (const word of words) {
-    if ((line + " " + word).trim().length > max && line) {
-      lines.push(line);
-      line = word;
-    } else line = `${line} ${word}`.trim();
-  }
-  if (line) lines.push(line);
-  return lines.slice(0, maxLines);
-}
-
-function AxisTick({ x, y, payload, vertical = false, isMobile = false }: any) {
-  // Tighter wrap on mobile so labels stay readable when columns are narrow.
-  const maxChars = vertical ? (isMobile ? 18 : 22) : (isMobile ? 12 : 20);
-  const lines = wrapLabel(String(payload?.value ?? ""), maxChars);
-  
-  // If horizontal, push the text down by 14px so it doesn't overlap the axis line
-  // If vertical, just use default Y behavior
-  const yOffset = vertical ? 0 : 14;
-
-  return (
-    <g transform={`translate(${x},${y + yOffset})`}>
-      {lines.map((line, i) => (
-        <text 
-          key={line + i} 
-          x={vertical ? -8 : 0} 
-          y={i * 14} 
-          textAnchor={vertical ? "end" : "middle"} 
-          fill="#475569" 
-          fontSize={11}
-          fontWeight={500}
-          style={{ fontFamily: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif" }}
-        >
-          {line}
-        </text>
-      ))}
-    </g>
-  );
-}
-
-export function BarChartCard({ data, xKey, dataKey, color }: { data: any[]; xKey: string; dataKey: string; color?: string }) {
-  const [isMobile, setIsMobile] = useState(false);
-  
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 640);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-  
-  return (
-    <div className="h-[300px] sm:h-80 w-full -ml-2 sm:ml-0">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart 
-          data={data} 
-          margin={isMobile 
-            ? { top: 16, right: 8, left: 8, bottom: 36 } 
-            : { top: 24, right: 12, left: 0, bottom: 24 }
-          }
-        >
-          {/* Taller XAxis so wrapped labels never overlap the axis line */}
-          <XAxis 
-            dataKey={xKey} 
-            tick={<AxisTick isMobile={isMobile} />} 
-            interval={0} 
-            height={isMobile ? 64 : 60} 
-            axisLine={{ stroke: '#cbd5e1' }} 
-            tickLine={false} 
-          />
-          <YAxis 
-            tick={{ fontSize: 11, fill: "#475569", fontFamily: "var(--font-geist-sans), sans-serif", fontWeight: 500 }} 
-            width={isMobile ? 32 : 40} 
-            axisLine={false} 
-            tickLine={false} 
-          />
-          <Tooltip cursor={{ fill: "#f1f5f9" }} contentStyle={{ borderRadius: 8, fontSize: 12 }} />
-          <Bar dataKey={dataKey} radius={[4, 4, 0, 0]} maxBarSize={50}>
-            <LabelList 
-              dataKey={dataKey} 
-              position="insideTop" 
-              fill="#ffffff" 
-              fontSize={isMobile ? 11 : 12} 
-              fontWeight={700} 
-              formatter={(value: any) => String(value)} 
-            />
-            {data.map((_, i) => (
-              <Cell key={i} fill={Object.values(COLOR_PALETTE)[i % 5]} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-export function HorizontalBarChart({ data, nameKey, valueKey }: { data: any[]; nameKey: string; valueKey: string }) {
-  return (
-    <div className="h-80 w-full -ml-2 sm:ml-0">
-      <ResponsiveContainer width="100%" height="100%">
-        {/* Tightened horizontal margins so the bars span better and aren't floating. */}
-        <BarChart data={data} layout="vertical" margin={{ top: 8, right: 28, left: 0, bottom: 0 }}>
-          <XAxis type="number" tick={{ fontSize: 11, fill: "#475569", fontFamily: "var(--font-geist-sans), sans-serif", fontWeight: 500 }} height={24} axisLine={false} tickLine={false} />
-          <YAxis type="category" dataKey={nameKey} tick={<AxisTick vertical />} width={135} axisLine={{ stroke: '#cbd5e1' }} tickLine={false} />
-          <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
-          <Bar dataKey={valueKey} radius={[0, 4, 4, 0]} maxBarSize={30}>
-            <LabelList dataKey={valueKey} position="insideRight" fill="#ffffff" fontSize={11} fontWeight={700} formatter={(value: any) => String(value)} />
-            {data.map((_, i) => (
-              <Cell key={i} fill={Object.values(COLOR_PALETTE)[i % 5]} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-const JENJANG_COLORS: Record<string, string> = {
-  PAUD: "#c53030",
-  SD: "#805ad5",
-  SMP: "#5f8d74",
-  SMA: "#c58b39",
-  SMK: "#d9829b",
-  Kesetaraan: "#9b2c2c",
-};
-const DEFAULT_DONUT_COLORS = ["#c53030", "#805ad5", "#5f8d74", "#c58b39", "#d9829b", "#9b2c2c"];
-
-function colorFor(name: string, index: number) {
-  return JENJANG_COLORS[name] ?? DEFAULT_DONUT_COLORS[index % DEFAULT_DONUT_COLORS.length];
-}
-
-function DonutLabel(props: any) {
-  const { cx, cy, midAngle, outerRadius, name, value, fill, percent, isMobile } = props;
-  const RAD = Math.PI / 180;
-  const isLeft = midAngle > 90 && midAngle < 270;
-  
-  // Anchor point on the slice edge
-  const sx = cx + outerRadius * Math.cos(-midAngle * RAD);
-  const sy = cy + outerRadius * Math.sin(-midAngle * RAD);
-  
-  // Dot just outside the slice
-  const dotDist = isMobile ? 6 : 8;
-  const dx = cx + (outerRadius + dotDist) * Math.cos(-midAngle * RAD);
-  const dy = cy + (outerRadius + dotDist) * Math.sin(-midAngle * RAD);
-  
-  // Leader line bends horizontally
-  const bendDist = isMobile ? 10 : 16;
-  const bendX = isLeft ? cx - outerRadius - bendDist : cx + outerRadius + bendDist;
-  const labelX = isLeft ? bendX - 4 : bendX + 4;
-  const labelY = dy;
-  const anchor = isLeft ? "end" : "start";
-  
-  return (
-    <g pointerEvents="none" className="overflow-visible">
-      <line x1={sx} y1={sy} x2={dx} y2={dy} stroke={fill} strokeWidth={1} />
-      <line x1={dx} y1={dy} x2={bendX} y2={dy} stroke={fill} strokeWidth={1} />
-      <circle cx={dx} cy={dy} r={2.5} fill={fill} />
-      <text
-        x={labelX}
-        y={labelY - 4}
-        textAnchor={anchor}
-        fill={fill}
-        fontSize={isMobile ? 10 : 11}
-        fontWeight={700}
-        style={{
-          fontFamily: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
-          paintOrder: "stroke",
-          stroke: "#fffefb",
-          strokeWidth: 3,
-          strokeLinejoin: "round",
-        }}
-      >
-        {`${name} (${value})`}
-      </text>
-      <text
-        x={labelX}
-        y={labelY + 9}
-        textAnchor={anchor}
-        fill="#475569"
-        fontSize={isMobile ? 9 : 10}
-        fontWeight={500}
-        style={{
-          fontFamily: "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif",
-          paintOrder: "stroke",
-          stroke: "#fffefb",
-          strokeWidth: 3,
-          strokeLinejoin: "round",
-        }}
-      >
-        {`${(percent * 100).toFixed(1).replace(".", ",")}%`}
-      </text>
-    </g>
-  );
-}
-
-export function DonutChart({ data }: { data: { name: string; value: number }[] }) {
-  const [isMobile, setIsMobile] = useState(false);
-  
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 640);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
-
-  const total = data.reduce((s, d) => s + d.value, 0);
-  return (
-    <div className="w-full">
-      <div className="h-[340px] w-full overflow-visible">
-        <ResponsiveContainer width="100%" height="100%" className="overflow-visible">
-          <PieChart margin={{ top: 20, right: isMobile ? 15 : 30, bottom: 20, left: isMobile ? 15 : 30 }} style={{ overflow: "visible" }}>
-            <Pie
-              data={data}
-              innerRadius={isMobile ? 55 : 75}
-              outerRadius={isMobile ? 85 : 115}
-              paddingAngle={2}
-              stroke="#fffefb"
-              strokeWidth={2}
-              dataKey="value"
-              labelLine={false}
-              label={(props: any) => <DonutLabel {...props} isMobile={isMobile} />}
-            >
-              {data.map((d, i) => (
-                <Cell key={d.name} fill={colorFor(d.name, i)} />
-              ))}
-            </Pie>
-            <Tooltip
-              formatter={(v: any) => {
-                const n = Number(v);
-                const pct = total ? Math.round((n / total) * 100) : 0;
-                return [`${n} (${pct}%)`, "Jumlah"];
-              }}
-              contentStyle={{ borderRadius: 8, fontSize: 12 }}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs">
-        {data.map((d, i) => (
-          <div key={d.name} className="flex items-center gap-1.5">
-            <span
-              className="inline-block h-3 w-3 rounded-sm"
-              style={{ backgroundColor: colorFor(d.name, i) }}
-              aria-hidden
-            />
-            <span className="font-medium text-slate-700">{`${d.name} (${d.value})`}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// Custom tick for radar axis labels.
-// Strategy: aggressively wrap text (max 11 chars/line), so labels stay compact
-// and never get clipped at the card edges. Headroom in the margin keeps the
-// block visible without shrinking the chart.
-const RADAR_LABEL_FONT = "var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif";
-function RadarAxisTick({ x, y, cx, cy, payload }: any) {
-  const lines = wrapLabel(String(payload?.value ?? "").toUpperCase(), 11, 4);
-  // Determine quadrant-based anchor & offset to push labels AWAY from polygon
-  const isLeft = x < cx - 12;
-  const isRight = x > cx + 12;
-  const isTop = y < cy - 12;
-  const isBottom = y > cy + 12;
-  const textAnchor = isLeft ? "end" : isRight ? "start" : "middle";
-  // Push labels further from polygon edges
-  const dx = isLeft ? -18 : isRight ? 18 : 0;
-  // Vertical: push top labels up, bottom labels down, center labels stay
-  const blockH = (lines.length - 1) * 12;
-  const dy = isTop ? -blockH - 4 : isBottom ? 8 : -(blockH / 2);
-  return (
-    <g transform={`translate(${x + dx},${y + dy})`}>
-      {lines.map((line, i) => (
-        <text
-          key={line + i}
-          x={0}
-          y={i * 12}
-          textAnchor={textAnchor}
-          fill="#123b35"
-          fontSize={10}
-          fontWeight={700}
-          style={{ fontFamily: RADAR_LABEL_FONT, letterSpacing: "0.01em" }}
-        >
-          {line}
-        </text>
-      ))}
-    </g>
-  );
-}
-
-// Vertical radial scale along the central axis (angle=90). The default
-// `stroke` on PolarRadiusAxis is hidden so no extra diagonal "stub" line is
-// drawn across the chart; only the numeric ticks remain, shifted slightly
-// off-center so they don't sit on top of the top vertex label.
-function RadarRadiusTick({ x, y, payload }: any) {
-  const v = Number(payload?.value ?? 0);
-  return (
-    <text
-      x={x}
-      y={y}
-      dx={0}
-      dy={-2}
-      textAnchor="middle"
-      fill="#334155"
-      fontSize={10}
-      fontWeight={500}
-      style={{
-        fontFamily: RADAR_LABEL_FONT,
-        paintOrder: "stroke",
-        stroke: "#fffefb",
-        strokeWidth: 3,
-        strokeLinejoin: "round",
-      }}
+    <div
+      className="relative overflow-hidden rounded-2xl glass p-4 sm:p-5 transition hover:-translate-y-0.5"
+      style={{ boxShadow: `0 0 18px -6px ${t.glow}` }}
     >
-      {v}
-    </text>
+      <div className={`absolute inset-x-0 top-0 h-[2px] ${t.stripe}`} aria-hidden />
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-[11px] sm:text-xs uppercase tracking-[0.18em] font-semibold" style={{ color: "var(--text-muted)" }}>{label}</div>
+        {icon ? (
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg"
+            style={{ background: t.iconBg, color: t.iconFg }}
+          >
+            <span aria-hidden>{icon}</span>
+          </div>
+        ) : null}
+      </div>
+      <div className="mt-2 text-2xl sm:text-[28px] font-semibold leading-tight break-words" style={{ color: "var(--text-primary)" }}>{value}</div>
+      {hint ? <div className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>{hint}</div> : null}
+    </div>
   );
 }
 
-export function RadarImpactChart({ data }: { data: { aspek: string; sebelum: number; sesudah: number }[] }) {
+// --- Helpers ---
+function mostKelas(rows: { kelas: string; jumlah: number }[]): string {
+  if (!rows.length) return "-";
+  return rows.reduce((a, b) => (b.jumlah > a.jumlah ? b : a), rows[0]).kelas;
+}
+
+function mostSkill(rows: { skill: string; jumlah: number }[]): string {
+  if (!rows.length) return "-";
+  return rows.reduce((a, b) => (b.jumlah > a.jumlah ? b : a), rows[0]).skill;
+}
+
+function topAspek(rows: { aspek: string; nilai: number }[]): string {
+  if (!rows.length) return "-";
+  return rows.reduce((a, b) => (b.nilai > a.nilai ? b : a), rows[0]).aspek;
+}
+
+// --- Charts ---
+export function BarChartCard({
+  data,
+  xKey,
+  dataKey,
+  height = 280,
+}: {
+  data: Array<Record<string, string | number>>;
+  xKey: string;
+  dataKey: string;
+  height?: number;
+}) {
+  const ct = useChartTheme();
   return (
-    <div className="h-[440px] sm:h-[420px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <RadarChart data={data} outerRadius="65%" margin={{ top: 40, right: 40, bottom: 30, left: 40 }}>
-          <PolarGrid stroke="#cbd5e1" strokeWidth={1.25} />
-          <PolarAngleAxis dataKey="aspek" tick={<RadarAxisTick />} />
-          <PolarRadiusAxis
-            angle={90}
-            domain={[0, 100]}
-            tick={<RadarRadiusTick />}
-            tickCount={5}
-            stroke="none"
+    <div style={{ width: "100%", height }}>
+      <ResponsiveContainer>
+        <BarChart data={data} margin={{ top: 24, right: 8, left: -16, bottom: 0 }}>
+          <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: ct.axis }} axisLine={false} tickLine={false} />
+          <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: ct.axis }} axisLine={false} tickLine={false} />
+          <Tooltip
+            cursor={{ fill: ct.cursor }}
+            contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: 10, color: ct.tooltipText, fontSize: 12 }}
           />
-          <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 500 }} />
+          <Bar dataKey={dataKey} radius={[6, 6, 0, 0]}>
+            {data.map((_, i) => (
+              <Cell key={i} fill={ct.palette[i % ct.palette.length]} />
+            ))}
+            <LabelList dataKey={dataKey} position="top" style={{ fontSize: 12, fill: ct.label, fontWeight: 600 }} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// Pie chart dengan legend vertikal di kanan + label persentase di dalam slice.
+// Mirip visual ringkasan Google Forms. Data shape: { name, value }.
+export function PieChartCard({
+  data,
+  nameKey = "name",
+  valueKey = "value",
+  height = 280,
+}: {
+  data: Array<Record<string, string | number>>;
+  nameKey?: string;
+  valueKey?: string;
+  height?: number;
+}) {
+  const ct = useChartTheme();
+  const total = data.reduce((s, d) => s + Number(d[valueKey] || 0), 0);
+  return (
+    <div style={{ width: "100%", height }}>
+      <ResponsiveContainer>
+        <PieChart>
+          <Tooltip
+            contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: 10, color: ct.tooltipText, fontSize: 12 }}
+            formatter={(value, name) => [`${value} (${total ? Math.round((Number(value) / total) * 100) : 0}%)`, String(name)]}
+          />
           <Legend
+            layout="horizontal"
+            verticalAlign="bottom"
+            align="center"
             iconType="circle"
-            wrapperStyle={{ fontSize: 11, paddingTop: 16 }}
-            formatter={(value) => <span className="text-slate-700 font-medium">{value}</span>}
+            wrapperStyle={{ fontSize: 12, color: ct.label, paddingTop: 12 }}
           />
-          <Radar name="Sebelum" dataKey="sebelum" stroke={COLOR_PALETTE.purple} strokeWidth={2} fill={COLOR_PALETTE.purple} fillOpacity={0.25} />
-          <Radar name="Sesudah" dataKey="sesudah" stroke={COLOR_PALETTE.primary} strokeWidth={2} fill={COLOR_PALETTE.primary} fillOpacity={0.4} />
-        </RadarChart>
+          <Pie
+            data={data}
+            dataKey={valueKey}
+            nameKey={nameKey}
+            cx="50%"
+            cy="45%"
+            outerRadius="70%"
+            innerRadius="0"
+            paddingAngle={1}
+            stroke={ct.tooltipBg}
+            label={({ percent }: { percent?: number }) => (percent && percent >= 0.05 ? `${Math.round(percent * 100)}%` : "")}
+            labelLine={false}
+          >
+            {data.map((_, i) => (
+              <Cell key={i} fill={ct.palette[i % ct.palette.length]} />
+            ))}
+          </Pie>
+        </PieChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-export function PolarAreaChart({ data }: { data: { aspek: string; nilai: number }[] }) {
+export function HorizontalBarChart({
+  data,
+  nameKey,
+  valueKey,
+  fullNameKey,
+  height = 320,
+  compact,
+}: {
+  data: Array<Record<string, string | number>>;
+  nameKey: string;
+  valueKey: string;
+  // Optional: jika diisi, YAxis tick akan membungkus teks pendek dengan <title>
+  // SVG berisi teks penuh dari field ini, sehingga saat hover browser menampilkan
+  // tooltip native berisi label lengkap (berguna untuk label panjang yang
+  // di-truncate oleh formatChartLabel). Pattern sama dengan DampakGroupedBarChart.
+  fullNameKey?: string;
+  height?: number;
+  // Optional override: true=paksa compact, false=paksa normal, undefined=auto
+  // (auto = true saat viewport <640px via useChartMode).
+  compact?: boolean;
+}) {
+  const ct = useChartTheme();
+  const compactAuto = useChartMode();
+  const isCompact = compact ?? compactAuto;
+  // Compact: YAxis lebih kecil (lebih banyak ruang untuk bar di mobile).
+  const yWidth = isCompact ? 80 : 130;
+  const yFont = isCompact ? 13 : 12;
+  const labelFont = isCompact ? 13 : 12;
   return (
-    <div className="h-[440px] sm:h-[420px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <RadarChart data={data} outerRadius="65%" margin={{ top: 40, right: 40, bottom: 30, left: 40 }}>
-          <PolarGrid stroke="#cbd5e1" strokeWidth={1.25} />
-          <PolarAngleAxis dataKey="aspek" tick={<RadarAxisTick />} />
-          <PolarRadiusAxis
-            angle={90}
-            domain={[0, 100]}
-            tick={<RadarRadiusTick />}
-            tickCount={5}
-            stroke="none"
+    <div style={{ width: "100%", height }}>
+      <ResponsiveContainer>
+        <BarChart data={data} layout="vertical" margin={{ top: 8, right: 32, left: 8, bottom: 0 }}>
+          <XAxis type="number" tick={{ fontSize: isCompact ? 11 : 12, fill: ct.axis }} axisLine={false} tickLine={false} />
+          <YAxis
+            type="category"
+            dataKey={nameKey}
+            width={yWidth}
+            tick={({ x, y, payload }) => {
+              const idx = payload?.index ?? -1;
+              const short = String(payload?.value ?? "");
+              const full = fullNameKey && idx >= 0 ? String(data[idx]?.[fullNameKey] ?? short) : short;
+              return (
+                <g>
+                  {fullNameKey && <title>{full}</title>}
+                  <text x={x} y={y} textAnchor="end" fill={ct.label} fontSize={yFont}>
+                    {short}
+                  </text>
+                </g>
+              );
+            }}
+            axisLine={false}
+            tickLine={false}
           />
-          <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12, fontWeight: 500 }} formatter={(v: any) => [`${v}%`, "Persentase"]} />
-          <Radar name="Nilai" dataKey="nilai" stroke={COLOR_PALETTE.green} strokeWidth={2} fill={COLOR_PALETTE.green} fillOpacity={0.45} />
+          <Tooltip
+            cursor={{ fill: ct.cursor }}
+            contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: 10, color: ct.tooltipText, fontSize: 12 }}
+          />
+          <Bar dataKey={valueKey} radius={[0, 6, 6, 0]}>
+            {data.map((_, i) => (
+              <Cell key={i} fill={ct.palette[i % ct.palette.length]} />
+            ))}
+            <LabelList dataKey={valueKey} position="right" style={{ fontSize: labelFont, fill: ct.label, fontWeight: 600 }} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// Tick label radar: tampilkan label pendek sebagai teks, dan teks asli
+// (sebelum di-truncate oleh formatChartLabel) sebagai tooltip native SVG
+// via <title>. Saat user hover pada label, browser otomatis show full text.
+type PolarAngleTickDatum = { aspek: string; aspekFull?: string };
+type PolarAngleTickProps = {
+  x?: number;
+  y?: number;
+  payload?: { value?: string; index?: number };
+  fill?: string;
+  data?: PolarAngleTickDatum[];
+};
+
+function PolarAngleTick({ x = 0, y = 0, payload, fill, data }: PolarAngleTickProps) {
+  const short = payload?.value ?? "";
+  const full = data?.[payload?.index ?? -1]?.aspekFull ?? short;
+  return (
+    <g>
+      <title>{full}</title>
+      <text x={x} y={y} textAnchor="middle" fill={fill} fontSize={12}>
+        {short}
+      </text>
+    </g>
+  );
+}
+
+export function PolarAreaChart({
+  data,
+  height = 320,
+}: {
+  data: Array<{ aspek: string; aspekFull?: string; nilai: number }>;
+  height?: number;
+}) {
+  const ct = useChartTheme();
+  return (
+    <div style={{ width: "100%", height }}>
+      <ResponsiveContainer>
+        <RadarChart
+          data={data}
+          outerRadius="75%"
+          margin={{ top: 16, right: 64, bottom: 16, left: 64 }}
+        >
+          <PolarGrid stroke={ct.grid} />
+          <PolarAngleAxis dataKey="aspek" tick={<PolarAngleTick fill={ct.label} data={data} />} />
+          <PolarRadiusAxis angle={45} domain={[0, 100]} tick={{ fontSize: 10, fill: ct.axisSecondary }} />
+          <Radar name="Skor" dataKey="nilai" stroke={ct.radarPrimary} fill={ct.radarPrimary} fillOpacity={0.45} />
+          <Tooltip
+            contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: 10, color: ct.tooltipText, fontSize: 12 }}
+          />
+          <Legend wrapperStyle={{ fontSize: 12, color: ct.axis }} />
         </RadarChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-// --- Sections ---
+// Bar chart horizontal khusus shape {aspek, nilai} (skor/persentase).
+// Dipakai card "Manfaat Asesmen" ortu yang sumber datanya pertanyaan
+// multi-aspek di Google Form — radar/polar tidak cocok untuk banyak aspek
+// dengan nilai yang seragam, sehingga sulit dibaca. Mirip visual Google
+// Forms summary (bar horizontal + label nilai di kanan).
+export function AspekBarChart({
+  data,
+  height = 320,
+  compact,
+}: {
+  data: Array<{ aspek: string; aspekFull?: string; nilai: number }>;
+  height?: number;
+  // Optional override: true=paksa compact, false=paksa normal, undefined=auto
+  // (auto = true saat viewport <640px via useChartMode).
+  compact?: boolean;
+}) {
+  const ct = useChartTheme();
+  const compactAuto = useChartMode();
+  const isCompact = compact ?? compactAuto;
+  // Compact: YAxis lebih kecil (lebih banyak ruang untuk bar di mobile).
+  const yWidth = isCompact ? 90 : 160;
+  const yFont = isCompact ? 13 : 12;
+  const labelFont = isCompact ? 12 : 11;
+  const marginR = isCompact ? 40 : 56;
+  // Auto-grow jika baris >5 agar tidak terpotong (lebih ringkas di compact).
+  const growPerRow = isCompact ? 24 : 28;
+  const computed = height + Math.max(0, data.length - 5) * growPerRow;
+  return (
+    <div style={{ width: "100%", height: computed }}>
+      <ResponsiveContainer>
+        <BarChart data={data} layout="vertical" margin={{ top: 8, right: marginR, left: 8, bottom: 8 }}>
+          <XAxis
+            type="number"
+            domain={[0, 100]}
+            tick={{ fontSize: isCompact ? 10 : 11, fill: ct.axis }}
+            axisLine={false}
+            tickLine={false}
+            unit="%"
+          />
+          <YAxis
+            type="category"
+            dataKey="aspek"
+            width={yWidth}
+            tick={({ x, y, payload }) => {
+              const idx = payload?.index ?? -1;
+              const short = String(payload?.value ?? "");
+              const full = data[idx]?.aspekFull ?? short;
+              return (
+                <g>
+                  <title>{full}</title>
+                  <text x={x} y={y} textAnchor="end" fill={ct.label} fontSize={yFont}>
+                    {short}
+                  </text>
+                </g>
+              );
+            }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip
+            cursor={{ fill: ct.cursor }}
+            contentStyle={{
+              background: ct.tooltipBg,
+              border: `1px solid ${ct.tooltipBorder}`,
+              borderRadius: 10,
+              color: ct.tooltipText,
+              fontSize: 12,
+            }}
+            formatter={(value) => [`${value}%`, "Skor"]}
+          />
+          <Bar dataKey="nilai" radius={[0, 6, 6, 0]}>
+            {data.map((_, i) => (
+              <Cell key={i} fill={ct.palette[i % ct.palette.length]} />
+            ))}
+            <LabelList
+              dataKey="nilai"
+              position="right"
+              formatter={(value) => `${value}%`}
+              style={{ fontSize: labelFont + 1, fill: ct.label, fontWeight: 600 }}
+            />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// Grouped horizontal bar chart untuk Sebelum vs Sesudah per aspek.
+// Mirip visual ringkasan Google Forms: dua bar side-by-side per row
+// + label "N (X%)" di ujung kanan.
+function DampakGroupedBarChart({
+  data,
+  height = 320,
+  compact,
+}: {
+  data: Array<{ aspek: string; aspekFull?: string; sebelum: number; sesudah: number; sebelumCount?: number; sesudahCount?: number }>;
+  height?: number;
+  // Optional override: true=paksa compact, false=paksa normal, undefined=auto
+  // (auto = true saat viewport <640px via useChartMode).
+  compact?: boolean;
+}) {
+  const ct = useChartTheme();
+  const compactAuto = useChartMode();
+  const isCompact = compact ?? compactAuto;
+  // Compact: YAxis lebih kecil (lebih banyak ruang untuk bar di mobile).
+  const yWidth = isCompact ? 100 : 180;
+  const yFont = isCompact ? 13 : 12;
+  const labelFont = isCompact ? 12 : 11;
+  const marginR = isCompact ? 56 : 72;
+  // Auto-grow jika baris >5 (lebih ringkas di compact).
+  const growPerRow = isCompact ? 24 : 32;
+  const computed = height + Math.max(0, data.length - 5) * growPerRow;
+  return (
+    <div style={{ width: "100%", height: computed }}>
+      <ResponsiveContainer>
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 8, right: marginR, left: 8, bottom: 8 }}
+          barCategoryGap="20%"
+        >
+          <XAxis
+            type="number"
+            domain={[0, 100]}
+            tick={{ fontSize: isCompact ? 10 : 11, fill: ct.axis }}
+            axisLine={false}
+            tickLine={false}
+            unit="%"
+          />
+          <YAxis
+            type="category"
+            dataKey="aspek"
+            width={yWidth}
+            tick={({ x, y, payload }) => {
+              const full = data[payload?.index ?? -1]?.aspekFull ?? String(payload?.value ?? "");
+              return (
+                <g>
+                  <title>{full}</title>
+                  <text x={x} y={y} textAnchor="end" fill={ct.label} fontSize={yFont}>
+                    {payload?.value}
+                  </text>
+                </g>
+              );
+            }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip
+            cursor={{ fill: ct.cursor }}
+            contentStyle={{
+              background: ct.tooltipBg,
+              border: `1px solid ${ct.tooltipBorder}`,
+              borderRadius: 10,
+              color: ct.tooltipText,
+              fontSize: 12,
+            }}
+            formatter={(value, name) => [`${value}%`, String(name)]}
+          />
+          <Bar dataKey="sebelum" name="Sebelum" fill={ct.radarSecondary} radius={[0, 4, 4, 0]}>
+            <LabelList
+              dataKey={(d: { sebelum: number; sebelumCount?: number }) =>
+                `${d.sebelumCount ?? 0} (${d.sebelum}%)`
+              }
+              position="right"
+              style={{ fontSize: labelFont, fill: ct.axisSecondary, fontWeight: 500 }}
+            />
+          </Bar>
+          <Bar dataKey="sesudah" name="Sesudah" fill={ct.radarPrimary} radius={[0, 4, 4, 0]}>
+            <LabelList
+              dataKey={(d: { sesudah: number; sesudahCount?: number }) =>
+                `${d.sesudahCount ?? 0} (${d.sesudah}%)`
+              }
+              position="right"
+              style={{ fontSize: labelFont, fill: ct.label, fontWeight: 600 }}
+            />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+// --- Section components ---
+function SectionHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle: string }) {
+  return (
+    <header>
+      <div className="text-[10px] uppercase tracking-[0.25em] font-semibold" style={{ color: "var(--accent)" }}>{eyebrow}</div>
+      <h1 className="mt-1 text-2xl sm:text-3xl font-light tracking-tight" style={{ color: "var(--text-primary)" }}>{title}</h1>
+      <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>{subtitle}</p>
+      <div className="divider-thin mt-4" />
+    </header>
+  );
+}
+
+function NumberedList({ items, emptyText }: { items: string[]; emptyText: string }) {
+  if (!items.length) return <p className="text-sm" style={{ color: "var(--text-muted)" }}>{emptyText}</p>;
+  return (
+    <ul style={{ borderColor: "var(--border)" }} className="divide-y">
+      {items.map((k, i) => (
+        <li key={i} className="flex items-start gap-3 py-3 text-sm">
+          <span
+            className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ring-1"
+            style={{ background: "var(--sidebar-active-bg)", color: "var(--text-primary)", borderColor: "var(--border)" }}
+          >
+            {i + 1}
+          </span>
+          <span style={{ color: "var(--text-secondary)" }}>{k}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function GuruSection({ data }: { data: GuruData }) {
+  const most = mostKelas(data.sebaranKelas);
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Instrumen untuk Guru</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Ringkasan hasil survei dari guru PDBK di berbagai jenjang dan kelas.
-        </p>
-      </header>
+      <SectionHeader
+        eyebrow="Bagian 1 dari 4"
+        title="Instrumen untuk Guru"
+        subtitle="Ringkasan hasil survei dari guru PDBK di berbagai jenjang dan kelas."
+      />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-        <Stat label="Total Responden" value={data.totalResponden} hint="Guru berpartisipasi" tone="sumi" icon="👩‍🏫" />
-        <Stat label="Kelas Terbanyak" value={mostKelas(data.sebaranKelas)} hint="Guru paling banyak mengajar di sini" tone="indigo" icon="📊" />
-        <Stat label="Skill Terbanyak" value={mostSkill(data.capaianKeterampilan)} hint="Keterampilan yang sering dikuasai" tone="wisteria" icon="🎯" />
-        <Stat label="Total Kebutuhan" value={data.kebutuhanPendampingan.length} hint="Item pendampingan diminta" tone="amber" icon="📝" />
+        <Stat label="Total Responden" value={data.totalResponden} hint="Guru berpartisipasi" tone="sumi" icon="👥" />
+        <Stat label="Kelas Terbanyak" value={most} hint="Guru paling banyak mengajar di sini" tone="indigo" icon="🏷️" />
+        <Stat label="Skill Terbanyak" value={mostSkill(data.capaianKeterampilan)} hint="Keterampilan yang sering dikuasai" tone="wisteria" icon="⭐" />
+        <Stat label="Total Kebutuhan" value={data.kebutuhanPendampingan.length} hint="Item pendampingan diminta" tone="amber" icon="📋" />
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Card title="Sebaran Guru per Kelas" subtitle="Jumlah responden per kelas yang diajar">
           <BarChartCard data={data.sebaranKelas} xKey="kelas" dataKey="jumlah" />
         </Card>
         <Card title="Keterampilan Baru yang Dikuasai Peserta Didik" subtitle="Diurutkan dari yang paling banyak">
-          <HorizontalBarChart data={data.capaianKeterampilan} nameKey="skill" valueKey="jumlah" />
+          <HorizontalBarChart
+            data={data.capaianKeterampilan}
+            nameKey="skill"
+            valueKey="jumlah"
+            fullNameKey="skillFull"
+          />
         </Card>
       </div>
-
       <Card title="Pendampingan yang Masih Dibutuhkan" subtitle="Ringkasan kebutuhan dari guru">
-        {data.kebutuhanPendampingan.length ? (
-          <ul className="divide-y divide-slate-100">
-            {data.kebutuhanPendampingan.map((k, i) => (
-              <li key={i} className="flex items-start gap-3 py-3 text-sm">
-                <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#fce7ea] text-xs font-semibold text-[#a12626]">
-                  {i + 1}
-                </span>
-                <span className="text-slate-700">{k}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-slate-500">Belum ada data.</p>
-        )}
+        <NumberedList items={data.kebutuhanPendampingan} emptyText="Belum ada data." />
       </Card>
     </div>
   );
@@ -734,61 +936,42 @@ export function KepsekSection({ data }: { data: KepsekData }) {
   const totalSekolah = data.sebaranJenjang.reduce((s, d) => s + d.value, 0);
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Instrumen untuk Kepala Sekolah</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Perspektif sekolah terhadap dampak program pendampingan PDBK.
-        </p>
-      </header>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-        <Stat label="Total Responden" value={data.totalResponden} hint="Kepala sekolah" tone="sumi" icon="🏫" />
-        <Stat label="Total Sekolah" value={totalSekolah} hint="Mewakili berbagai jenjang" tone="indigo" icon="🏛️" />
+      <SectionHeader
+        eyebrow="Bagian 2 dari 4"
+        title="Instrumen untuk Kepala Sekolah"
+        subtitle="Perspektif sekolah terhadap dampak program pendampingan PDBK."
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 items-stretch">
+        <Stat label="Total Responden" value={data.totalResponden} hint="Kepala sekolah" tone="sumi" icon="👥" />
+        <Stat label="Total Sekolah" value={totalSekolah} hint="Mewakili berbagai jenjang" tone="indigo" icon="🏫" />
         <Stat
           label="Rata-rata Dampak"
           value={`${Math.round(
-            data.dampakProgram.reduce((s, d) => s + d.sesudah, 0) /
-              Math.max(1, data.dampakProgram.length),
+            data.dampakProgram.reduce((s, d) => s + d.sesudah, 0) / Math.max(1, data.dampakProgram.length),
           )}%`}
           hint="Indeks komposit 5 aspek (sesudah)"
           tone="torii"
-          icon="📈"
+          icon="📊"
         />
-        <Stat
+        {/* HIDDEN: kotak stat "Kenaikan Tertinggi" (lihat dashboard/HIDDEN_FEATURES.md). */}
+        {/* <Stat
           label="Kenaikan Tertinggi"
-          value={`+${Math.max(
-            ...data.dampakProgram.map((d) => d.sesudah - d.sebelum),
-          )}%`}
+          value={`+${Math.max(...data.dampakProgram.map((d) => d.sesudah - d.sebelum))}%`}
           hint="Aspek yang paling melonjak"
           tone="matcha"
-          icon="🚀"
-        />
+          icon="📈"
+        /> */}
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <Card title="Sebaran Jenjang Sekolah" subtitle="Responden per jenjang">
-          <DonutChart data={data.sebaranJenjang} />
+        <Card title="Sebaran per Jenjang" subtitle="Distribusi sekolah responden">
+          <PieChartCard data={data.sebaranJenjang} nameKey="name" valueKey="value" />
         </Card>
-        <Card title="Dampak Program Pendampingan" subtitle="Indeks Sebelum vs Sesudah (0–100)">
-          <RadarImpactChart data={data.dampakProgram} />
+        <Card title="Dampak Program" subtitle="Lima aspek utama">
+          <DampakGroupedBarChart data={data.dampakProgram} />
         </Card>
       </div>
-
-      <Card title="Saran Perbaikan dari Kepala Sekolah">
-        {data.saran.length ? (
-          <ul className="space-y-2 max-h-72 overflow-y-auto pr-2">
-            {data.saran.map((s, i) => (
-              <li
-                key={i}
-                className="flex gap-3 rounded-lg border border-[#eee6db] bg-[#faf8f4] px-3 py-2 text-sm text-slate-700"
-              >
-                <span className="text-slate-400 select-none">{i + 1}.</span>
-                <span>{s}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-slate-500">Belum ada data.</p>
-        )}
+      <Card title="Saran untuk Perbaikan Program" subtitle="Catatan dari kepala sekolah">
+        <NumberedList items={data.saran} emptyText="Belum ada data." />
       </Card>
     </div>
   );
@@ -797,52 +980,64 @@ export function KepsekSection({ data }: { data: KepsekData }) {
 export function OrtuSection({ data }: { data: OrtuData }) {
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Instrumen untuk Orang Tua</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Penilaian orang tua terhadap manfaat asesmen & pendampingan.
-        </p>
-      </header>
+      <SectionHeader
+        eyebrow="Bagian 3 dari 4"
+        title="Instrumen untuk Orang Tua"
+        subtitle="Perspektif orang tua terhadap manfaat pendampingan bagi anak."
+      />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
         <Stat label="Total Responden" value={data.totalResponden} hint="Orang tua berpartisipasi" tone="sumi" icon="👨‍👩‍👧" />
         <Stat
           label="Rata-rata Manfaat"
           value={`${Math.round(
-            data.capaianManfaat.reduce((s, d) => s + d.nilai, 0) /
-              Math.max(1, data.capaianManfaat.length),
+            data.capaianManfaat.reduce((s, d) => s + d.nilai, 0) / Math.max(1, data.capaianManfaat.length),
           )}%`}
           hint="Skor rata-rata"
           tone="torii"
-          icon="❤️"
+          icon="💡"
         />
         <Stat
           label="Aspek Tertinggi"
           value={`${Math.max(...data.capaianManfaat.map((d) => d.nilai))}%`}
           hint={topAspek(data.capaianManfaat)}
           tone="wisteria"
-          icon="🌟"
+          icon="🏆"
         />
         <Stat label="Total Testimoni" value={data.perubahanPositif.length} hint="Cerita perubahan positif" tone="matcha" icon="💬" />
       </div>
-
-      <Card title="Manfaat Asesmen dari Perspektif Orang Tua" subtitle="Persentase (%)">
-        <BarChartCard data={data.capaianManfaat} xKey="aspek" dataKey="nilai" />
+      <Card title="Manfaat Asesmen dari Perspektif Orang Tua" subtitle="Aspek yang paling dirasakan positif">
+        <AspekBarChart data={data.capaianManfaat} />
       </Card>
-
       <Card title="Perubahan Positif yang Dirasakan Orang Tua" subtitle="Testimoni kualitatif">
         {data.perubahanPositif.length ? (
           <div className="grid sm:grid-cols-2 gap-3">
             {data.perubahanPositif.map((p, i) => (
-              <article key={i} className="rounded-xl border border-[#eee6db] bg-[#faf8f4] p-4 shadow-sm">
-                <h3 className="text-sm font-semibold text-slate-800">{p.judul}</h3>
-                <p className="mt-2 text-sm text-slate-600 leading-relaxed" style={{ fontFamily: "serif" }}>
-                  “{p.cerita}”
+              <article
+                key={i}
+                className="relative rounded-xl border p-4 pl-5 anim-fade-in-up"
+                style={{
+                  animationDelay: `${i * 60}ms`,
+                  borderColor: "var(--testimoni-border)",
+                  background: "var(--testimoni-bg)",
+                }}
+              >
+                <span
+                  className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full"
+                  style={{ background: "linear-gradient(to bottom, var(--testimoni-accent-from), var(--testimoni-accent-to))" }}
+                  aria-hidden
+                />
+                <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{p.judul}</h3>
+                <p
+                  className="mt-2 text-sm leading-relaxed italic"
+                  style={{ color: "var(--text-secondary)", fontFamily: "ui-serif, Georgia, 'Times New Roman', serif" }}
+                >
+                  &ldquo;{p.cerita}&rdquo;
                 </p>
               </article>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-500">Belum ada testimoni.</p>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Belum ada testimoni.</p>
         )}
       </Card>
     </div>
@@ -852,113 +1047,39 @@ export function OrtuSection({ data }: { data: OrtuData }) {
 export function SiswaSection({ data }: { data: SiswaData }) {
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Instrumen untuk Peserta Didik</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Suara peserta didik tentang pengalaman belajar di sekolah inklusif.
-        </p>
-      </header>
+      <SectionHeader
+        eyebrow="Bagian 4 dari 4"
+        title="Instrumen untuk Peserta Didik"
+        subtitle="Suara peserta didik tentang pengalaman belajar dan hal yang mereka sukai."
+      />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-        <Stat label="Total Responden" value={data.totalResponden} hint="Peserta didik" tone="sumi" icon="🎓" />
+        <Stat label="Total Responden" value={data.totalResponden} hint="Peserta didik" tone="sumi" icon="🎒" />
         <Stat
           label="Rata-rata Pengalaman"
           value={`${Math.round(
-            data.pengalamanBelajar.reduce((s, d) => s + d.nilai, 0) /
-              Math.max(1, data.pengalamanBelajar.length),
+            data.pengalamanBelajar.reduce((s, d) => s + d.nilai, 0) / Math.max(1, data.pengalamanBelajar.length),
           )}%`}
           hint="Skor rata-rata"
           tone="torii"
-          icon="✨"
+          icon="📐"
         />
         <Stat
           label="Aspek Tertinggi"
           value={`${Math.max(...data.pengalamanBelajar.map((d) => d.nilai))}%`}
           hint={topAspek(data.pengalamanBelajar)}
           tone="wisteria"
-          icon="🏆"
+          icon="🌟"
         />
-        <Stat label="Total Kata" value={data.halDisukai.length} hint="Hal disukai di sekolah" tone="amber" icon="💭" />
+        <Stat label="KATA UNIK" value={new Set(data.halDisukai.map(w => w.toLowerCase())).size} hint="Kata Unik Yang Muncul" tone="matcha" icon="💚" />
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <Card title="Pengalaman Belajar" subtitle="Polar area — aspek yang paling dirasakan positif">
-          <PolarAreaChart data={data.pengalamanBelajar} />
-        </Card>
-        <Card title="Hal yang Paling Disukai di Sekolah" subtitle="Word cloud sederhana dari jawaban siswa">
-          <WordCloud items={data.halDisukai} />
-        </Card>
-      </div>
-    </div>
-  );
-}
-
-// --- Helpers ---
-function mostKelas(rows: { kelas: string; jumlah: number }[]) {
-  if (!rows.length) return "-";
-  return rows.reduce((a, b) => (a.jumlah >= b.jumlah ? a : b)).kelas;
-}
-
-function mostSkill(rows: { skill: string; jumlah: number }[]) {
-  if (!rows.length) return "-";
-  return rows.reduce((a, b) => (a.jumlah >= b.jumlah ? a : b)).skill;
-}
-
-function topAspek(rows: { aspek: string; nilai: number }[]) {
-  if (!rows.length) return "-";
-  return rows.reduce((a, b) => (a.nilai >= b.nilai ? a : b)).aspek;
-}
-
-const WORD_PALETTE = [
-  { bg: "rgba(197, 48, 48, 0.12)",  fg: "#9b2c2c" }, // torii
-  { bg: "rgba(128, 90, 213, 0.14)", fg: "#553c9a" }, // wisteria
-  { bg: "rgba(47, 133, 90, 0.14)",  fg: "#276749" }, // matcha
-  { bg: "rgba(217, 130, 155, 0.16)",fg: "#9b2c5b" }, // sakura
-  { bg: "rgba(183, 121, 31, 0.16)", fg: "#744210" }, // amber
-  { bg: "rgba(58, 67, 120, 0.14)",  fg: "#3a4378" }, // indigo
-];
-
-function WordCloud({ items }: { items: string[] }) {
-  const counts = items.reduce<Record<string, number>>((acc, w) => {
-    const k = w.toLowerCase().trim();
-    if (!k) return acc;
-    acc[k] = (acc[k] ?? 0) + 1;
-    return acc;
-  }, {});
-  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  if (entries.length === 0) return <p className="text-sm text-slate-500">Belum ada data.</p>;
-  const max = entries[0][1];
-  return (
-    <div className="relative bg-wordcloud overflow-hidden rounded-2xl border border-[#eee6db] px-3 py-4">
-      <div className="sakura-corner" aria-hidden />
-      <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1.5 text-center">
-        {entries.map(([word, n], i) => {
-          // Logarithmic scale keeps popular words from dominating too much
-          const ratio = Math.log(n + 1) / Math.log(max + 1);
-          const size = 10 + Math.round(ratio * 10); // 10px .. 20px
-          const palette = WORD_PALETTE[i % WORD_PALETTE.length];
-          return (
-            <span
-              key={word}
-              title={`${word} · ${n}× disebut`}
-              className="inline-block cursor-default rounded-full px-2 py-0.5 font-medium leading-tight transition-transform hover:-translate-y-0.5 hover:scale-[1.04]"
-              style={{
-                fontSize: `${size}px`,
-                backgroundColor: palette.bg,
-                color: palette.fg,
-                transform: i % 2 === 0 ? "rotate(-0.6deg)" : "rotate(0.6deg)",
-                fontWeight: ratio > 0.6 ? 600 : 500,
-              }}
-            >
-              {word}
-            </span>
-          );
-        })}
-      </div>
-      {entries[0] && (
-        <div className="mt-3 text-center text-[11px] text-slate-500">
-          Total {entries.length} kata · paling sering: <span className="font-semibold text-slate-700">{entries[0][0]}</span>
+      <Card title="Pengalaman Belajar setelah Asesmen" subtitle="Aspek yang paling dirasakan positif">
+        <PolarAreaChart data={data.pengalamanBelajar} />
+      </Card>
+      <Card title="Hal yang Paling Disukai di Sekolah" subtitle="Kata-kata yang sering muncul">
+        <div className="rounded-xl bg-wordcloud p-2">
+          <WordCloud words={data.halDisukai} height={300} />
         </div>
-      )}
+      </Card>
     </div>
   );
 }

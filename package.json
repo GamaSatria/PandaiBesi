@@ -1,6 +1,11 @@
 {
+  "scripts": {
+    "dev": "npm --prefix dashboard run dev",
+    "build": "npm --prefix dashboard run build",
+    "start": "npm --prefix dashboard run start",
+    "lint": "npm --prefix dashboard run lint"
+  },
   "dependencies": {
-    "googleapis": "^174.0.1",
     "recharts": "^3.10.1"
   }
 }

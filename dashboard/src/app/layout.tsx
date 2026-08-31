@@ -1,17 +1,12 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Noto_Sans_JP } from "next/font/google";
+import { Manrope, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
-const inter = Inter({
+const manrope = Manrope({
   variable: "--font-sans",
   subsets: ["latin"],
-  display: "swap",
-});
-
-const notoSansJP = Noto_Sans_JP({
-  variable: "--font-jp",
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
+  weight: ["200", "300", "400", "500", "600", "700", "800"],
   display: "swap",
 });
 
@@ -27,6 +22,21 @@ export const metadata: Metadata = {
     "Visualisasi hasil survei instrumen evaluasi layanan PDBK (Guru, Kepala Sekolah, Orang Tua, Peserta Didik).",
 };
 
+// Inline init script: applies stored theme before paint to avoid FOUC.
+// Must run before React hydrates, so it's safe and matches SSR html class.
+const themeInitScript = `
+(function () {
+  try {
+    var stored = localStorage.getItem('pdbk-theme');
+    var theme = stored === 'light' || stored === 'dark' ? stored : 'dark';
+    var root = document.documentElement;
+    root.classList.remove('theme-dark', 'theme-light');
+    root.classList.add(theme === 'light' ? 'theme-light' : 'theme-dark');
+    root.style.colorScheme = theme;
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({
   children,
 }: {
@@ -35,10 +45,14 @@ export default function RootLayout({
   return (
     <html
       lang="id"
-      className={`${inter.variable} ${notoSansJP.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      suppressHydrationWarning
+      className={`${manrope.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-[#faf8f4] text-[#1a202c] font-sans">
-        {children}
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
+      <body className="min-h-full bg-[var(--background)] text-[var(--foreground)] font-sans">
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );
