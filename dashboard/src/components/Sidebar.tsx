@@ -1179,7 +1179,7 @@ export function GuruSection({ data, period }: { data: GuruData; period: Period }
   return (
     <div className="space-y-6">
       <SectionHeader
-        eyebrow="Bagian 1 dari 4"
+        eyebrow={is2025 ? "Bagian 1 dari 1" : "Bagian 1 dari 4"}
         title="Instrumen untuk Guru"
         subtitle="Ringkasan hasil survei dari guru PDBK di berbagai jenjang dan kelas."
       />
