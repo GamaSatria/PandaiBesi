@@ -543,7 +543,7 @@ export function Stat({
   const t = TONE_STYLES[tone] ?? TONE_STYLES.sumi;
   return (
     <div
-      className="relative overflow-hidden rounded-2xl glass p-4 sm:p-5 transition hover:-translate-y-0.5"
+      className="relative flex flex-col overflow-hidden rounded-2xl glass p-4 sm:p-5 transition hover:-translate-y-0.5"
       style={{ boxShadow: `0 0 18px -6px ${t.glow}` }}
     >
       <div className={`absolute inset-x-0 top-0 h-[2px] ${t.stripe}`} aria-hidden />
@@ -559,7 +559,7 @@ export function Stat({
         ) : null}
       </div>
       <div className="mt-2 text-2xl sm:text-[28px] font-semibold leading-tight break-words" style={{ color: "var(--text-primary)" }}>{value}</div>
-      {hint ? <div className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>{hint}</div> : null}
+      {hint ? <div className="mt-auto pt-2 text-xs" style={{ color: "var(--text-muted)" }}>{hint}</div> : null}
     </div>
   );
 }
@@ -567,12 +567,32 @@ export function Stat({
 // --- Helpers ---
 function mostKelas(rows: { kelas: string; jumlah: number }[]): string {
   if (!rows.length) return "-";
-  return rows.reduce((a, b) => (b.jumlah > a.jumlah ? b : a), rows[0]).kelas;
+  const max = Math.max(...rows.map((r) => r.jumlah));
+  return rows.filter((r) => r.jumlah === max).map((r) => r.kelas).join(" & ");
 }
 
 function mostSkill(rows: { skill: string; jumlah: number }[]): string {
   if (!rows.length) return "-";
   return rows.reduce((a, b) => (b.jumlah > a.jumlah ? b : a), rows[0]).skill;
+}
+
+function mostSkillYangDidapat(rows: { aspek: string; aspekFull?: string; nilai: number }[]): string {
+  if (!rows.length) return "-";
+  const top = rows.reduce((a, b) => (b.nilai > a.nilai ? b : a), rows[0]);
+  return top.aspekFull ?? top.aspek; // tampilkan teks lengkap tanpa "..."
+}
+
+function truncateWords(text: string, words: number): string {
+  // "/" juga dianggap pemisah kata → "senang/semangat" jadi 2 kata terpisah
+  const parts = text.trim().split(/\s+|\//);
+  if (parts.length <= words) return text;
+  return parts.slice(0, words).join(" ") + "...";
+}
+
+function mostKemampuanSiswa(rows: { name: string; nameFull?: string; value: number }[]): string {
+  if (!rows.length) return "-";
+  const top = rows.reduce((a, b) => (b.value > a.value ? b : a), rows[0]);
+  return truncateWords(top.nameFull ?? top.name, 3);
 }
 
 function topAspek(rows: { aspek: string; nilai: number }[]): string {
@@ -585,32 +605,117 @@ export function BarChartCard({
   data,
   xKey,
   dataKey,
+  fullNameKey,
+  isPercent = false,
   height = 280,
 }: {
   data: Array<Record<string, string | number>>;
   xKey: string;
   dataKey: string;
+  // Optional: jika diisi, XAxis tick membungkus teks pendek dengan <title>
+  // SVG berisi teks penuh dari field ini, sehingga saat hover browser menampilkan
+  // tooltip native berisi label lengkap (pattern sama dengan HorizontalBarChart).
+  // Juga mengaktifkan klik pada bar yang menampilkan deskripsi penuh (untuk mobile).
+  fullNameKey?: string;
+  // True bila nilai data berupa persentase 0-100 → tampilkan tanda % pada sumbu & label.
+  isPercent?: boolean;
   height?: number;
 }) {
   const ct = useChartTheme();
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const activeItem = activeIdx !== null ? data[activeIdx] : undefined;
   return (
-    <div style={{ width: "100%", height }}>
-      <ResponsiveContainer>
-        <BarChart data={data} margin={{ top: 24, right: 8, left: -16, bottom: 0 }} accessibilityLayer={false}>
-          <XAxis dataKey={xKey} tick={{ fontSize: 12, fill: ct.axis }} axisLine={false} tickLine={false} />
-          <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: ct.axis }} axisLine={false} tickLine={false} />
-          <Tooltip
-            cursor={{ fill: ct.cursor }}
-            contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: 10, color: ct.tooltipText, fontSize: 12 }}
-          />
-          <Bar dataKey={dataKey} radius={[6, 6, 0, 0]}>
-            {data.map((_, i) => (
-              <Cell key={i} fill={ct.palette[i % ct.palette.length]} />
-            ))}
-            <LabelList dataKey={dataKey} position="top" style={{ fontSize: 12, fill: ct.label, fontWeight: 600 }} />
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+    <div>
+      {fullNameKey && (
+        <p className="mb-1 text-right" style={{ color: ct.axisSecondary, fontSize: 11 }}>
+          Ketuk bar untuk melihat deskripsi lengkap
+        </p>
+      )}
+      <div style={{ width: "100%", height }}>
+        <ResponsiveContainer>
+          <BarChart data={data} margin={{ top: 24, right: 8, left: -16, bottom: fullNameKey ? 36 : 20 }} accessibilityLayer={false}>
+            <XAxis
+              dataKey={xKey}
+              tick={
+                fullNameKey
+                  ? ({ x, y, payload }) => {
+                      const idx = payload?.index ?? -1;
+                      const short = String(payload?.value ?? "");
+                      const full = idx >= 0 ? String(data[idx]?.[fullNameKey] ?? short) : short;
+                      return (
+                        <g transform={`translate(${x},${y})`}>
+                          <title>{full}</title>
+                          <text textAnchor="end" transform="rotate(-35)" fill={ct.label} fontSize={11}>
+                            {short}
+                          </text>
+                        </g>
+                      );
+                    }
+                  : { fontSize: 12, fill: ct.axis }
+              }
+              axisLine={false}
+              tickLine={false}
+              interval={0}
+            />
+            <YAxis
+              allowDecimals={false}
+              tickFormatter={(v) => (isPercent ? `${v}%` : String(v))}
+              tick={{ fontSize: 12, fill: ct.axis }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip
+              cursor={{ fill: ct.cursor }}
+              formatter={(value) => (isPercent ? `${value}%` : value)}
+              contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: 10, color: ct.tooltipText, fontSize: 12 }}
+            />
+            <Bar
+              dataKey={dataKey}
+              radius={[6, 6, 0, 0]}
+              onClick={(_, i) => setActiveIdx(activeIdx === i ? null : i)}
+              style={{ cursor: fullNameKey ? "pointer" : undefined }}
+            >
+              {data.map((_, i) => (
+                <Cell
+                  key={i}
+                  fill={ct.palette[i % ct.palette.length]}
+                  fillOpacity={activeIdx !== null && activeIdx !== i ? 0.35 : 1}
+                />
+              ))}
+              <LabelList
+                dataKey={dataKey}
+                position="top"
+                formatter={(v) => (isPercent ? `${v}%` : String(v))}
+                style={{ fontSize: 12, fill: ct.label, fontWeight: 600 }}
+              />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      {fullNameKey && activeItem && (
+        <div
+          className="mt-3 flex items-start justify-between gap-3 rounded-xl border p-3 text-sm"
+          style={{ background: ct.tooltipBg, borderColor: ct.tooltipBorder, color: ct.tooltipText }}
+        >
+          <div>
+            <div className="font-semibold" style={{ color: ct.label }}>
+              {String(activeItem[xKey])}
+              <span className="ml-2" style={{ color: ct.axisSecondary, fontWeight: 500 }}>
+                Nilai: {String(activeItem[dataKey])}%
+              </span>
+            </div>
+            <p className="mt-1">{String(activeItem[fullNameKey] ?? "")}</p>
+          </div>
+          <button
+            onClick={() => setActiveIdx(null)}
+            className="shrink-0 rounded-full px-2 text-sm leading-6"
+            style={{ color: ct.axisSecondary }}
+            aria-label="Tutup detail"
+          >
+            ×
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -1030,8 +1135,20 @@ export function GuruSection({ data, period }: { data: GuruData; period: Period }
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
         <Stat label="Total Responden" value={data.totalResponden} hint="Guru berpartisipasi" tone="sumi" icon="👥" />
         <Stat label="Kelas Terbanyak" value={most} hint="Guru paling banyak mengajar di sini" tone="indigo" icon="🏷️" />
-        <Stat label="Skill Terbanyak" value={mostSkill(data.capaianKeterampilan)} hint="Keterampilan yang sering dikuasai" tone="wisteria" icon="⭐" />
-        <Stat label="Total Kebutuhan" value={data.kebutuhanPendampingan.length} hint="Item pendampingan diminta" tone="amber" icon="📋" />
+        <Stat
+          label="Skill Terbanyak"
+          value={is2025 ? mostSkillYangDidapat(data.skillYangDidapat ?? []) : mostSkill(data.capaianKeterampilan)}
+          hint={is2025 ? "Skill Yang di Dapat Setelah Pendampingan" : "Keterampilan yang sering dikuasai"}
+          tone="wisteria"
+          icon="⭐"
+        />
+        <Stat
+          label={is2025 ? "Kemampuan Siswa/i" : "Total Kebutuhan"}
+          value={is2025 ? mostKemampuanSiswa(data.chartTower ?? []) : data.kebutuhanPendampingan.length}
+          hint={is2025 ? "Kemampuan Terbaik Yang Dilakukan PDBK" : "Item pendampingan diminta"}
+          tone="amber"
+          icon="📋"
+        />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Card title="Sebaran Guru per Kelas" subtitle="Jumlah responden per kelas yang diajar">
@@ -1067,15 +1184,22 @@ export function GuruSection({ data, period }: { data: GuruData; period: Period }
             />
           )}
         </Card>
-        {is2025 && (
-          <Card title="Skill yang Di Dapat" subtitle="Skor keterampilan yang didapat peserta didik">
-            <PolarAreaChart data={data.skillYangDidapat ?? []} />
-          </Card>
-        )}
       </div>
-      <Card title="Pendampingan yang Masih Dibutuhkan" subtitle="Ringkasan kebutuhan dari guru">
-        <NumberedList items={data.kebutuhanPendampingan} emptyText="Belum ada data." />
-      </Card>
+      {is2025 && (
+        <Card title="Skill yang Di Dapat" subtitle="Skor keterampilan yang didapat Guru Setelah Program PDBK">
+          <PolarAreaChart data={data.skillYangDidapat ?? []} />
+        </Card>
+      )}
+      {is2025 && (
+        <Card title="Kemampuan Siswa/i" subtitle="Kemampuan yang dapat dilakukan PDBK">
+          <BarChartCard data={data.chartTower ?? []} xKey="name" dataKey="value" fullNameKey="nameFull" isPercent height={360} />
+        </Card>
+      )}
+      {!is2025 && (
+        <Card title="Pendampingan yang Masih Dibutuhkan" subtitle="Ringkasan kebutuhan dari guru">
+          <NumberedList items={data.kebutuhanPendampingan} emptyText="Belum ada data." />
+        </Card>
+      )}
     </div>
   );
 }

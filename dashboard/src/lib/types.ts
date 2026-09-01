@@ -36,6 +36,8 @@ export type GuruData = {
   pemahamanInklusif?: { aspek: string; aspekFull?: string; nilai: number }[];
   /** Khusus periode 2025: skill yang didapat peserta didik (skala 0-100). Data placeholder, diisi manual. */
   skillYangDidapat?: { aspek: string; aspekFull?: string; nilai: number }[];
+  /** Khusus periode 2025: bar chart vertikal (tower), data placeholder diisi manual. */
+  chartTower?: { name: string; nameFull?: string; value: number }[];
 };
 
 export type KepsekData = {

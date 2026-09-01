@@ -53,8 +53,9 @@ const PERIOD_SECTIONS: Record<Period, SectionKey[]> = {
 | `SiswaData` | Total responden, pengalaman belajar, hal disukai | ❌ Tidak |
 
 **Catatan khusus `GuruData` untuk 2025:**
-- Field `pemahamanInklusif` dan `skillYangDidapat` hanya ada di periode 2025 (field optional, tidak ada di 2026).
-- Keduanya adalah data chart segilima (PolarAreaChart) bentuk `{ aspek, aspekFull?, nilai }[]` dengan skala nilai 0-100.
+- Field `pemahamanInklusif`, `skillYangDidapat`, dan `chartTower` hanya ada di periode 2025 (field optional, tidak ada di 2026).
+- `pemahamanInklusif` dan `skillYangDidapat` adalah data chart segilima (PolarAreaChart) bentuk `{ aspek, aspekFull?, nilai }[]` dengan skala nilai 0-100.
+- `chartTower` adalah data bar chart vertikal (BarChartCard) bentuk `{ name, nameFull?, value }[]`. `name` label pendek + `...`, `nameFull` teks lengkap (tooltip saat hover).
 - Field `capaianKeterampilan` dan `kebutuhanPendampingan` tersedia tapi bisa kosong jika belum diisi.
 
 ### Chart Segilima "Skill yang Di Dapat" (2025 S1)
@@ -129,6 +130,7 @@ Komponen `GuruSection` memiliki rendering berbeda berdasarkan periode:
 | Sebaran Guru per Kelas | **PieChart** (donut) | **BarChart** |
 | Keterampilan / Pemahaman | **PolarAreaChart** (pemahaman inklusif) | **HorizontalBarChart** (capaian keterampilan) |
 | Skill yang Di Dapat | **PolarAreaChart** (skillYangDidapat) | — (tidak ada) |
+| Chart Tower | **BarChartCard** (chartTower) | — (tidak ada) |
 | Kebutuhan Pendampingan | `NumberedList` (biasanya kosong) | `NumberedList` (diisi dari Google Sheets) |
 
 Hal ini dikontrol oleh flag `is2025` di dalam `GuruSection`:

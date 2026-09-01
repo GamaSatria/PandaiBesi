@@ -39,7 +39,7 @@ export function DashboardShell({ data }: { data: DashboardData }) {
   }[active];
 
   return (
-    <div className="flex min-h-screen bg-transparent">
+    <div className="flex h-dvh bg-transparent">
       {/* Desktop sidebar — hidden below md */}
       <Sidebar
         active={active}

@@ -51,6 +51,18 @@ export const DATA_2025_S1: DashboardData = {
       { aspek: "Pembelajaran Sesuai...", aspekFull: "Mampu memberikan pembelajaran sesuai kondisi PDBK", nilai: Math.round((9 / 17) * 100) },
       { aspek: "Penilaian Hasil Belajar...", aspekFull: "Mampu memberikan penilaian hasil belajar PDBK", nilai: Math.round((9 / 17) * 100) },
     ],
+    chartTower: [
+      { name: "Wajah Senang...", nameFull: "Menunjukkan wajah senang/semangat berada di sekolah", value: Math.round((16 / 17) * 100) },
+      { name: "Percaya Diri...", nameFull: "Tampak percaya diri dalam lingkungan di kelasnya", value: Math.round((13 / 17) * 100) },
+      { name: "Duduk Tenang...", nameFull: "Duduk tenang selama proses pembelajaran di kelas", value: Math.round((12 / 17) * 100) },
+      { name: "Teman Kelas...", nameFull: "Berbicara dengan teman di kelas", value: Math.round((15 / 17) * 100) },
+      { name: "Dengan Guru...", nameFull: "Berbicara dengan guru", value: Math.round((13 / 17) * 100) },
+      { name: "Ke Toilet...", nameFull: "Ke kamar mandi (BAK/BAB) tanpa bantuan orang lain", value: Math.round((9 / 17) * 100) },
+      { name: "Bermain Teman...", nameFull: "Bermain dengan teman sebayanya yang lain", value: Math.round((11 / 17) * 100) },
+      { name: "Fokus Dengar...", nameFull: "Lebih fokus mendengarkan materi yang diberikan guru", value: Math.round((8 / 17) * 100) },
+      { name: "Selesaikan Tugas...", nameFull: "Menyelesaikan tugas yang diberikan guru", value: Math.round((12 / 17) * 100) },
+      { name: "Ikuti Aturan...", nameFull: "Bisa mengikuti aturan yang diterapkan sekolah", value: Math.round((12 / 17) * 100) },
+    ],
   },
   kepsek: {
     totalResponden: 0,
