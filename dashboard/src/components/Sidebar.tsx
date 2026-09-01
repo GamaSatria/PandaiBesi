@@ -295,7 +295,7 @@ export function Sidebar({
           color: "var(--sidebar-text-faint)",
         }}
       >
-        v1.0.0 dari Google Forms
+        Pandaibesi By Dr. Sri Rakhmawanti, S.E.,M.M.
       </div>
       {/* depth meter — abysswalker-style decorative rail on the right edge */}
       <div className="depth-rail pointer-events-none absolute right-0 top-12 bottom-12 w-px opacity-70" />
@@ -847,29 +847,38 @@ export function HorizontalBarChart({
 // via <title>. Saat user hover pada label, browser otomatis show full text.
 type PolarAngleTickDatum = { aspek: string; aspekFull?: string };
 type PolarAngleTickProps = {
-  x?: number;
-  y?: number;
+  x?: number | string;
+  y?: number | string;
   payload?: { value?: string; index?: number };
   fill?: string;
   data?: PolarAngleTickDatum[];
   chartHeight?: number;
+  // Klik pada label → tampilkan deskripsi lengkap (untuk mobile tanpa hover).
+  onLabelClick?: (index: number) => void;
+  active?: boolean;
 };
 
-function PolarAngleTick({ x = 0, y = 0, payload, fill, data, chartHeight = 320 }: PolarAngleTickProps) {
+function PolarAngleTick({ x = 0, y = 0, payload, fill, data, chartHeight = 320, onLabelClick, active }: PolarAngleTickProps) {
   const short = payload?.value ?? "";
   const full = data?.[payload?.index ?? -1]?.aspekFull ?? short;
+  const index = payload?.index ?? -1;
+  const yy = Number(y);
+  const xx = Number(x);
   // Label di separuh bawah chart terdorong ke bawah agar tidak menumpuk dgn
   // label & titik radar di sekitarnya (masalah label bawah yg rapat).
-  const isBottom = chartHeight > 0 && y > chartHeight * 0.62;
+  const isBottom = chartHeight > 0 && yy > chartHeight * 0.62;
   return (
     <g>
       <title>{full}</title>
       <text
-        x={x}
-        y={y + (isBottom ? 28 : 0)}
+        x={xx}
+        y={yy + (isBottom ? 28 : 0)}
         textAnchor="middle"
         fill={fill}
         fontSize={11}
+        fontWeight={active ? 700 : 400}
+        style={{ cursor: onLabelClick ? "pointer" : undefined }}
+        onClick={onLabelClick && index >= 0 ? () => onLabelClick(index) : undefined}
       >
         {short}
       </text>
@@ -885,34 +894,76 @@ export function PolarAreaChart({
   height?: number;
 }) {
   const ct = useChartTheme();
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const activeItem = activeIdx !== null ? data[activeIdx] : undefined;
   return (
-    <div style={{ width: "100%", height }}>
-      <ResponsiveContainer>
-        <RadarChart
-          data={data}
-          outerRadius="70%"
-          margin={{ top: 16, right: 56, bottom: 44, left: 56 }}
-          accessibilityLayer={false}
+    <div>
+      <p className="mb-1 text-right" style={{ color: ct.axisSecondary, fontSize: 11 }}>
+        Ketuk label untuk melihat deskripsi lengkap
+      </p>
+      <div style={{ width: "100%", height }}>
+        <ResponsiveContainer>
+          <RadarChart
+            data={data}
+            outerRadius="70%"
+            margin={{ top: 16, right: 56, bottom: 44, left: 56 }}
+            accessibilityLayer={false}
+          >
+            <PolarGrid stroke={ct.grid} />
+            <PolarAngleAxis
+              dataKey="aspek"
+              tick={({ x, y, payload }) => (
+                <PolarAngleTick
+                  x={x}
+                  y={y}
+                  payload={payload}
+                  fill={ct.label}
+                  data={data}
+                  chartHeight={height}
+                  onLabelClick={(i) => setActiveIdx(activeIdx === i ? null : i)}
+                  active={activeIdx === payload?.index}
+                />
+              )}
+            />
+            <PolarRadiusAxis angle={45} domain={[0, 100]} tick={false} axisLine={false} />
+            <Radar name="Skor" dataKey="nilai" stroke={ct.radarPrimary} fill={ct.radarPrimary} fillOpacity={0.45} />
+            <Tooltip
+              contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: 10, color: ct.tooltipText, fontSize: 12 }}
+            />
+            <Legend
+              layout="horizontal"
+              verticalAlign="bottom"
+              align="center"
+              iconType="circle"
+              wrapperStyle={{ fontSize: 11, color: ct.axis, paddingTop: 8 }}
+            />
+          </RadarChart>
+        </ResponsiveContainer>
+      </div>
+      {activeItem && (
+        <div
+          className="mt-3 flex items-start justify-between gap-3 rounded-xl border p-3 text-sm"
+          style={{ background: ct.tooltipBg, borderColor: ct.tooltipBorder, color: ct.tooltipText }}
         >
-          <PolarGrid stroke={ct.grid} />
-          <PolarAngleAxis
-            dataKey="aspek"
-            tick={<PolarAngleTick fill={ct.label} data={data} chartHeight={height} />}
-          />
-          <PolarRadiusAxis angle={45} domain={[0, 100]} tick={false} axisLine={false} />
-          <Radar name="Skor" dataKey="nilai" stroke={ct.radarPrimary} fill={ct.radarPrimary} fillOpacity={0.45} />
-          <Tooltip
-            contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: 10, color: ct.tooltipText, fontSize: 12 }}
-          />
-          <Legend
-            layout="horizontal"
-            verticalAlign="bottom"
-            align="center"
-            iconType="circle"
-            wrapperStyle={{ fontSize: 11, color: ct.axis, paddingTop: 8 }}
-          />
-        </RadarChart>
-      </ResponsiveContainer>
+          <div>
+            <div className="font-semibold" style={{ color: ct.label }}>
+              {activeItem.aspek}
+              <span className="ml-2" style={{ color: ct.axisSecondary, fontWeight: 500 }}>
+                Skor: {activeItem.nilai}%
+              </span>
+            </div>
+            <p className="mt-1">{activeItem.aspekFull ?? activeItem.aspek}</p>
+          </div>
+          <button
+            onClick={() => setActiveIdx(null)}
+            className="shrink-0 rounded-full px-2 text-sm leading-6"
+            style={{ color: ct.axisSecondary }}
+            aria-label="Tutup detail"
+          >
+            ×
+          </button>
+        </div>
+      )}
     </div>
   );
 }
