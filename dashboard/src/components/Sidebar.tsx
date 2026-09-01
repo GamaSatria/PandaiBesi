@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { GuruData, KepsekData, OrtuData, SiswaData } from "@/lib/types";
+import type { GuruData, KepsekData, OrtuData, SiswaData, Period, SectionKey } from "@/lib/types";
+import { PERIODS, PERIOD_SECTIONS } from "@/lib/types";
 import { WordCloud } from "@/components/WordCloud";
 import { useTheme } from "@/components/ThemeProvider";
 import {
@@ -143,8 +144,6 @@ function ThemeToggle() {
   );
 }
 
-type SectionKey = "guru" | "kepsek" | "ortu" | "siswa";
-
 const SECTIONS: { key: SectionKey; label: string; shortLabel: string; emoji: string }[] = [
   { key: "guru", label: "Instrumen untuk Guru", shortLabel: "Guru", emoji: "👨‍🏫" },
   { key: "kepsek", label: "Instrumen untuk Kepala Sekolah", shortLabel: "Kepsek", emoji: "🎓" },
@@ -155,9 +154,13 @@ const SECTIONS: { key: SectionKey; label: string; shortLabel: string; emoji: str
 export function Sidebar({
   active,
   onChange,
+  activePeriod,
+  onPeriodChange,
 }: {
   active: SectionKey;
   onChange: (k: SectionKey) => void;
+  activePeriod: Period;
+  onPeriodChange: (p: Period) => void;
 }) {
   return (
     <aside
@@ -194,11 +197,65 @@ export function Sidebar({
       <nav className="flex flex-col gap-1 px-2">
         {SECTIONS.map((s) => {
           const isActive = active === s.key;
+          const isDisabled = !PERIOD_SECTIONS[activePeriod].includes(s.key);
           return (
             <button
               key={s.key}
               onClick={() => onChange(s.key)}
-              className="group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition border-l-2"
+              disabled={isDisabled}
+              aria-disabled={isDisabled}
+              className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition border-l-2 ${
+                isDisabled ? "cursor-not-allowed opacity-70" : ""
+              }`}
+              style={
+                isActive
+                  ? {
+                      background: "var(--sidebar-active-bg)",
+                      color: "var(--text-primary)",
+                      borderLeftColor: "var(--accent)",
+                      paddingLeft: 10,
+                    }
+                  : {
+                      background: "transparent",
+                      color: "var(--sidebar-text-muted)",
+                      borderLeftColor: "transparent",
+                    }
+              }
+              onMouseEnter={(e) => {
+                if (!isActive && !isDisabled) {
+                  e.currentTarget.style.background = "var(--sidebar-hover-bg)";
+                  e.currentTarget.style.color = "var(--text-primary)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive && !isDisabled) {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "var(--sidebar-text-muted)";
+                }
+              }}
+            >
+              <span className={`text-lg ${isDisabled ? "grayscale" : ""}`} aria-hidden>
+                {s.emoji}
+              </span>
+              <span className={`truncate ${isDisabled ? "line-through" : ""}`}>{s.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+      <div
+        className="px-4 pt-5 pb-2 text-[10px] uppercase tracking-[0.2em]"
+        style={{ color: "var(--sidebar-text-faint)" }}
+      >
+        Periode
+      </div>
+      <div className="flex flex-col gap-1 px-2 pb-3">
+        {PERIODS.map((p: { key: Period; label: string }) => {
+          const isActive = activePeriod === p.key;
+          return (
+            <button
+              key={p.key}
+              onClick={() => onPeriodChange(p.key)}
+              className="rounded-lg px-3 py-2 text-left text-sm transition border-l-2"
               style={
                 isActive
                   ? {
@@ -226,12 +283,11 @@ export function Sidebar({
                 }
               }}
             >
-              <span className="text-lg">{s.emoji}</span>
-              <span className="truncate">{s.label}</span>
+              {p.label}
             </button>
           );
         })}
-      </nav>
+      </div>
       <div
         className="mt-auto border-t px-6 py-4 text-xs"
         style={{
@@ -250,9 +306,13 @@ export function Sidebar({
 export function MobileTabs({
   active,
   onChange,
+  activePeriod,
+  onPeriodChange,
 }: {
   active: SectionKey;
   onChange: (k: SectionKey) => void;
+  activePeriod: Period;
+  onPeriodChange: (p: Period) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -337,13 +397,60 @@ export function MobileTabs({
             <ul className="py-1">
               {SECTIONS.map((s) => {
                 const isActive = active === s.key;
+                const isDisabled = !PERIOD_SECTIONS[activePeriod].includes(s.key);
                 return (
                   <li key={s.key}>
                     <button
                       type="button"
                       role="menuitem"
+                      disabled={isDisabled}
+                      aria-disabled={isDisabled}
                       onClick={() => {
                         onChange(s.key);
+                        setOpen(false);
+                      }}
+                      className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition border-l-2 ${
+                        isDisabled ? "cursor-not-allowed opacity-70" : ""
+                      }`}
+                      style={
+                        isActive
+                          ? {
+                              background: "var(--sidebar-active-bg)",
+                              color: "var(--text-primary)",
+                              borderLeftColor: "var(--accent)",
+                            }
+                          : {
+                              background: "transparent",
+                              color: "var(--sidebar-text)",
+                              borderLeftColor: "transparent",
+                            }
+                      }
+                    >
+                      <span className={`text-lg ${isDisabled ? "grayscale" : ""}`} aria-hidden>
+                        {s.emoji}
+                      </span>
+                      <span className={`font-medium ${isDisabled ? "line-through" : ""}`}>{s.label}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <div
+              className="px-4 pt-2 pb-1 text-[10px] uppercase tracking-[0.2em]"
+              style={{ color: "var(--sidebar-text-faint)" }}
+            >
+              Periode
+            </div>
+            <ul className="py-1">
+              {PERIODS.map((p: { key: Period; label: string }) => {
+                const isActive = activePeriod === p.key;
+                return (
+                  <li key={p.key}>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        onPeriodChange(p.key);
                         setOpen(false);
                       }}
                       className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition border-l-2"
@@ -361,10 +468,7 @@ export function MobileTabs({
                             }
                       }
                     >
-                      <span className="text-lg" aria-hidden>
-                        {s.emoji}
-                      </span>
-                      <span className="font-medium">{s.label}</span>
+                      <span className="font-medium">{p.label}</span>
                     </button>
                   </li>
                 );
@@ -643,15 +747,25 @@ type PolarAngleTickProps = {
   payload?: { value?: string; index?: number };
   fill?: string;
   data?: PolarAngleTickDatum[];
+  chartHeight?: number;
 };
 
-function PolarAngleTick({ x = 0, y = 0, payload, fill, data }: PolarAngleTickProps) {
+function PolarAngleTick({ x = 0, y = 0, payload, fill, data, chartHeight = 320 }: PolarAngleTickProps) {
   const short = payload?.value ?? "";
   const full = data?.[payload?.index ?? -1]?.aspekFull ?? short;
+  // Label di separuh bawah chart terdorong ke bawah agar tidak menumpuk dgn
+  // label & titik radar di sekitarnya (masalah label bawah yg rapat).
+  const isBottom = chartHeight > 0 && y > chartHeight * 0.62;
   return (
     <g>
       <title>{full}</title>
-      <text x={x} y={y} textAnchor="middle" fill={fill} fontSize={12}>
+      <text
+        x={x}
+        y={y + (isBottom ? 28 : 0)}
+        textAnchor="middle"
+        fill={fill}
+        fontSize={11}
+      >
         {short}
       </text>
     </g>
@@ -660,7 +774,7 @@ function PolarAngleTick({ x = 0, y = 0, payload, fill, data }: PolarAngleTickPro
 
 export function PolarAreaChart({
   data,
-  height = 320,
+  height = 360,
 }: {
   data: Array<{ aspek: string; aspekFull?: string; nilai: number }>;
   height?: number;
@@ -671,18 +785,27 @@ export function PolarAreaChart({
       <ResponsiveContainer>
         <RadarChart
           data={data}
-          outerRadius="75%"
-          margin={{ top: 16, right: 64, bottom: 16, left: 64 }}
+          outerRadius="70%"
+          margin={{ top: 16, right: 56, bottom: 44, left: 56 }}
           accessibilityLayer={false}
         >
           <PolarGrid stroke={ct.grid} />
-          <PolarAngleAxis dataKey="aspek" tick={<PolarAngleTick fill={ct.label} data={data} />} />
-          <PolarRadiusAxis angle={45} domain={[0, 100]} tick={{ fontSize: 10, fill: ct.axisSecondary }} />
+          <PolarAngleAxis
+            dataKey="aspek"
+            tick={<PolarAngleTick fill={ct.label} data={data} chartHeight={height} />}
+          />
+          <PolarRadiusAxis angle={45} domain={[0, 100]} tick={false} axisLine={false} />
           <Radar name="Skor" dataKey="nilai" stroke={ct.radarPrimary} fill={ct.radarPrimary} fillOpacity={0.45} />
           <Tooltip
             contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: 10, color: ct.tooltipText, fontSize: 12 }}
           />
-          <Legend wrapperStyle={{ fontSize: 12, color: ct.axis }} />
+          <Legend
+            layout="horizontal"
+            verticalAlign="bottom"
+            align="center"
+            iconType="circle"
+            wrapperStyle={{ fontSize: 11, color: ct.axis, paddingTop: 8 }}
+          />
         </RadarChart>
       </ResponsiveContainer>
     </div>
@@ -894,8 +1017,9 @@ function NumberedList({ items, emptyText }: { items: string[]; emptyText: string
   );
 }
 
-export function GuruSection({ data }: { data: GuruData }) {
+export function GuruSection({ data, period }: { data: GuruData; period: Period }) {
   const most = mostKelas(data.sebaranKelas);
+  const is2025 = period === "2025-s1" || period === "2025-s2";
   return (
     <div className="space-y-6">
       <SectionHeader
@@ -911,16 +1035,43 @@ export function GuruSection({ data }: { data: GuruData }) {
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Card title="Sebaran Guru per Kelas" subtitle="Jumlah responden per kelas yang diajar">
-          <BarChartCard data={data.sebaranKelas} xKey="kelas" dataKey="jumlah" />
+          {is2025 ? (
+            <PieChartCard
+              data={data.sebaranKelas.map((d) => ({ name: d.kelas, value: d.jumlah }))}
+              height={360}
+            />
+          ) : (
+            <BarChartCard data={data.sebaranKelas} xKey="kelas" dataKey="jumlah" />
+          )}
         </Card>
-        <Card title="Keterampilan Baru yang Dikuasai Peserta Didik" subtitle="Diurutkan dari yang paling banyak">
-          <HorizontalBarChart
-            data={data.capaianKeterampilan}
-            nameKey="skill"
-            valueKey="jumlah"
-            fullNameKey="skillFull"
-          />
+        <Card
+          title={
+            is2025
+              ? "Pemahaman Guru"
+              : "Keterampilan Baru yang Dikuasai Peserta Didik"
+          }
+          subtitle={
+            is2025
+              ? "Sejauh Mana Pemahaman Guru Mengenai Pendidikan Inklusif"
+              : "Diurutkan dari yang paling banyak"
+          }
+        >
+          {is2025 ? (
+            <PolarAreaChart data={data.pemahamanInklusif ?? []} />
+          ) : (
+            <HorizontalBarChart
+              data={data.capaianKeterampilan}
+              nameKey="skill"
+              valueKey="jumlah"
+              fullNameKey="skillFull"
+            />
+          )}
         </Card>
+        {is2025 && (
+          <Card title="Skill yang Di Dapat" subtitle="Skor keterampilan yang didapat peserta didik">
+            <PolarAreaChart data={data.skillYangDidapat ?? []} />
+          </Card>
+        )}
       </div>
       <Card title="Pendampingan yang Masih Dibutuhkan" subtitle="Ringkasan kebutuhan dari guru">
         <NumberedList items={data.kebutuhanPendampingan} emptyText="Belum ada data." />
