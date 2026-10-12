@@ -1,319 +1,174 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import type { GuruData, KepsekData, OrtuData, SiswaData, Period, SectionKey } from "@/lib/types";
+import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
+import { Menu, Moon, Sun, X } from "lucide-react";
+import type { Period, SectionKey } from "@/lib/types";
 import { PERIODS, PERIOD_SECTIONS } from "@/lib/types";
-import { WordCloud } from "@/components/WordCloud";
-import { useTheme } from "@/components/ThemeProvider";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-  LabelList,
-  RadarChart,
-  Radar,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Legend,
-  Pie,
-  PieChart,
-} from "recharts";
+import { useTheme } from "@/components/useTheme";
+import { SECTIONS } from "@/components/nav-meta";
 
-type ChartTokens = {
-  palette: string[];
-  axis: string;
-  axisSecondary: string;
-  label: string;
-  grid: string;
-  cursor: string;
-  tooltipBg: string;
-  tooltipBorder: string;
-  tooltipText: string;
-  radarPrimary: string;
-  radarSecondary: string;
-};
+type NavProps = Readonly<{
+  active: SectionKey;
+  onChange: (k: SectionKey) => void;
+  activePeriod: Period;
+  onPeriodChange: (p: Period) => void;
+}>;
 
-const DARK_TOKENS: ChartTokens = {
-  palette: ["#f43f5e", "#a78bfa", "#38bdf8", "#34d399", "#fbbf24", "#f472b6", "#60a5fa", "#facc15"],
-  axis: "#cbd5e1",
-  axisSecondary: "#94a3b8",
-  label: "#e8e8ec",
-  grid: "rgba(255,255,255,0.08)",
-  cursor: "rgba(255,255,255,0.04)",
-  tooltipBg: "rgba(15,15,23,0.92)",
-  tooltipBorder: "rgba(255,255,255,0.12)",
-  tooltipText: "#e8e8ec",
-  radarPrimary: "#f43f5e",
-  radarSecondary: "#a78bfa",
-};
-
-const LIGHT_TOKENS: ChartTokens = {
-  palette: ["#e11d48", "#7c3aed", "#0284c7", "#059669", "#d97706", "#db2777", "#2563eb", "#ca8a04"],
-  axis: "#475569",
-  axisSecondary: "#94a3b8",
-  label: "#1e293b",
-  grid: "rgba(15,15,23,0.08)",
-  cursor: "rgba(15,15,23,0.04)",
-  tooltipBg: "rgba(255,255,255,0.96)",
-  tooltipBorder: "rgba(15,15,23,0.12)",
-  tooltipText: "#0f172a",
-  radarPrimary: "#e11d48",
-  radarSecondary: "#7c3aed",
-};
-
-/** Returns the chart tokens for the currently-applied theme (from <html> class). */
-function useChartTheme(): ChartTokens {
-  // Subscribe to the <html> class so we re-read tokens after every theme change.
-  // We can't use useSyncExternalStore cleanly here because we need to read multiple
-  // values from getComputedStyle, so we use a snapshot + subscribe pattern manually
-  // and update via a state that the MutationObserver triggers.
-  const subscribe = useCallback((cb: () => void) => {
-    if (typeof document === "undefined") return () => {};
-    const obs = new MutationObserver(cb);
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => obs.disconnect();
-  }, []);
-
-  const getThemeKey = useCallback(
-    () => (typeof document === "undefined" ? "dark" : document.documentElement.classList.contains("theme-light") ? "light" : "dark"),
-    [],
-  );
-
-  // useSyncExternalStore gives us a clean re-render trigger without setState-in-effect.
-  useSyncExternalStore(
-    subscribe,
-    getThemeKey,
-    () => "dark",
-  );
-
-  // We don't actually need the returned value (we read tokens directly) —
-  // the subscription is what matters for re-rendering. But TS needs us to use it.
-  // We intentionally ignore the return here.
-  void getThemeKey;
-
-  if (typeof document === "undefined") return DARK_TOKENS;
-  return document.documentElement.classList.contains("theme-light") ? LIGHT_TOKENS : DARK_TOKENS;
-}
-
-/** Returns true saat viewport width < breakpoint (default 640px = Tailwind sm:).
- *  Dipakai chart components untuk compact mode (YAxis lebih kecil, font lebih
- *  besar) sehingga bar chart di mobile tidak terlalu kecil. */
-function useChartMode(breakpoint = 640): boolean {
-  const [compact, setCompact] = useState(false);
-  useEffect(() => {
-    const update = () => setCompact(window.innerWidth < breakpoint);
-    update();
-    window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, [breakpoint]);
-  return compact;
-}
-
+// Satu tombol: klik untuk berganti tema. Ikon yang tampil (bulan di mode
+// terang, matahari di mode gelap) diatur CSS dari class tema di <html>
+// (.theme-icon-*), jadi tidak berkedip saat hidrasi dan berganti dengan
+// transisi halus.
 function ThemeToggle() {
   const { theme, toggle } = useTheme();
-  const isDark = theme === "dark";
+  const label = theme === "dark" ? "Aktifkan mode terang" : "Aktifkan mode gelap";
   return (
     <button
       type="button"
       onClick={toggle}
-      aria-label={isDark ? "Aktifkan mode terang" : "Aktifkan mode gelap"}
-      title={isDark ? "Mode terang" : "Mode gelap"}
-      className="group relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border transition active:scale-95"
-      style={{
-        background: "var(--sidebar-active-bg)",
-        borderColor: "var(--sidebar-border)",
-        color: "var(--sidebar-text)",
-      }}
+      aria-label={label}
+      title={label}
+      className="focus-ring relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line bg-surface-muted text-ink transition-[background-color,transform] duration-150 hover:bg-hover active:scale-95"
     >
-      {isDark ? (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-        </svg>
-      ) : (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-        </svg>
-      )}
+      <Moon aria-hidden className="theme-icon theme-icon-moon absolute h-[18px] w-[18px]" />
+      <Sun aria-hidden className="theme-icon theme-icon-sun absolute h-[18px] w-[18px]" />
     </button>
   );
 }
 
-const SECTIONS: { key: SectionKey; label: string; shortLabel: string; emoji: string }[] = [
-  { key: "guru", label: "Instrumen untuk Guru", shortLabel: "Guru", emoji: "👨‍🏫" },
-  { key: "kepsek", label: "Instrumen untuk Kepala Sekolah", shortLabel: "Kepsek", emoji: "🎓" },
-  { key: "ortu", label: "Instrumen untuk Orang Tua", shortLabel: "Orang Tua", emoji: "👨‍👩‍👧" },
-  { key: "siswa", label: "Instrumen untuk Peserta Didik", shortLabel: "Peserta Didik", emoji: "🎒" },
-];
-
-export function Sidebar({
-  active,
-  onChange,
-  activePeriod,
-  onPeriodChange,
-}: {
-  active: SectionKey;
-  onChange: (k: SectionKey) => void;
-  activePeriod: Period;
-  onPeriodChange: (p: Period) => void;
-}) {
+function Logo({ preload = false }: Readonly<{ preload?: boolean }>) {
   return (
-    <aside
-      className="relative hidden md:flex md:w-72 shrink-0 flex-col bg-sidebar border-r"
-      style={{
-        color: "var(--sidebar-text)",
-        borderColor: "var(--sidebar-border-soft)",
-      }}
-    >
-      <div
-        className="flex items-center gap-3 border-b px-6 py-6"
-        style={{ borderColor: "var(--sidebar-border)" }}
-      >
-        <img
-          src="/logo.webp"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).src = "/logo-fallback.jpg";
-          }}
-          alt="Logo PDBK"
-          className="h-9 w-9 rounded-lg object-cover anim-pulse-glow"
-        />
-        <div className="leading-tight flex-1 min-w-0">
-          <div className="font-semibold tracking-wide" style={{ color: "var(--text-primary)" }}>Dashboard</div>
-          <div style={{ color: "var(--sidebar-text-muted)" }} className="text-xs">Evaluasi Layanan PDBK</div>
+    <Image
+      src="/logo.webp"
+      alt="Logo PDBK"
+      width={40}
+      height={40}
+      preload={preload}
+      className="h-10 w-10 shrink-0 rounded-xl object-cover outline-1 -outline-offset-1 outline-line"
+    />
+  );
+}
+
+function GroupLabel({ children }: Readonly<{ children: React.ReactNode }>) {
+  return <div className="px-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted">{children}</div>;
+}
+
+// Tanpa ikon: titik berwarna menandai nada tiap instrumen (sama dengan warna
+// halaman instrumennya).
+function SectionList({ active, onChange, activePeriod }: Omit<NavProps, "onPeriodChange">) {
+  const available = PERIOD_SECTIONS[activePeriod];
+  return (
+    <div className="flex flex-col gap-0.5 rounded-[20px] bg-surface-muted p-1.5">
+      {SECTIONS.map((s) => {
+        const disabled = !available.includes(s.key);
+        return (
+          <button
+            key={s.key}
+            type="button"
+            onClick={() => onChange(s.key)}
+            disabled={disabled}
+            aria-current={active === s.key ? "page" : undefined}
+            title={disabled ? "Tidak tersedia di periode ini" : undefined}
+            // Tinggi tetap (satu baris) agar kotak menu tidak berubah ukuran saat periode diganti.
+            className={`nav-btn focus-ring tone-${s.tone} flex h-11 w-full items-center gap-3 rounded-[14px] px-3.5 text-left`}
+          >
+            <span aria-hidden className="nav-dot h-2.5 w-2.5 shrink-0 rounded-full" />
+            <span className="nav-label min-w-0 flex-1 truncate text-[14.5px] leading-5">
+              {s.label}
+              {disabled ? <span className="sr-only">, tidak tersedia di periode ini</span> : null}
+            </span>
+            {disabled ? (
+              <span aria-hidden className="shrink-0 text-[11px] font-semibold text-muted">
+                Tidak ada
+              </span>
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PeriodList({ activePeriod, onPeriodChange }: Pick<NavProps, "activePeriod" | "onPeriodChange">) {
+  return (
+    <div role="group" aria-label="Periode data" className="flex flex-col rounded-[20px] bg-surface-muted p-1.5">
+      {PERIODS.map((p, i) => {
+        const [year, ...semester] = p.label.split(" ");
+        const isFirst = i === 0;
+        const isLast = i === PERIODS.length - 1;
+        return (
+          <button
+            key={p.key}
+            type="button"
+            onClick={() => onPeriodChange(p.key)}
+            aria-pressed={activePeriod === p.key}
+            aria-label={`${p.label} (${PERIOD_SECTIONS[p.key].length} instrumen)`}
+            className="nav-btn focus-ring flex h-[60px] w-full items-stretch gap-3.5 rounded-[14px] pl-4 pr-3 text-left"
+          >
+            <span aria-hidden className="flex w-3 shrink-0 flex-col items-center">
+              <span className={`w-0.5 flex-1 ${isFirst ? "" : "bg-line-strong"}`} />
+              <span className="period-node h-3 w-3 shrink-0 rounded-full" />
+              <span className={`w-0.5 flex-1 ${isLast ? "" : "bg-line-strong"}`} />
+            </span>
+            <span aria-hidden className="flex min-w-0 flex-1 flex-col justify-center">
+              <span className="period-year text-[11.5px] font-extrabold leading-4 tabular-nums text-muted">
+                {year}
+                {isFirst ? " · Terbaru" : ""}
+              </span>
+              <span className="text-sm font-bold leading-5 text-ink">{semester.join(" ")}</span>
+            </span>
+            <span aria-hidden className="flex items-center">
+              <span className="period-count whitespace-nowrap rounded-full bg-hover px-2 py-0.5 text-[11px] font-bold tabular-nums text-muted">
+                {PERIOD_SECTIONS[p.key].length} instrumen
+              </span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function Credit() {
+  return (
+    <p className="text-[11.5px] leading-relaxed text-muted">
+      Pandaibesi by
+      <br />
+      <span className="font-semibold text-body">Dr. Sri Rakhmawanti, S.E., M.M.</span>
+    </p>
+  );
+}
+
+export function Sidebar(props: NavProps) {
+  return (
+    <aside className="bg-sidebar hidden w-72 shrink-0 flex-col border-r border-line md:flex">
+      <div className="flex items-center gap-3 px-5 pb-5 pt-[22px]">
+        <Logo preload />
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="text-base font-extrabold tracking-[-0.01em] text-ink">Dashboard</div>
+          <div className="text-xs font-medium text-muted">Evaluasi Layanan PDBK</div>
         </div>
         <ThemeToggle />
       </div>
-      <div
-        className="px-4 pt-5 pb-2 text-[10px] uppercase tracking-[0.2em]"
-        style={{ color: "var(--sidebar-text-faint)" }}
-      >
-        Menu
-      </div>
-      <nav className="flex flex-col gap-1 px-2">
-        {SECTIONS.map((s) => {
-          const isActive = active === s.key;
-          const isDisabled = !PERIOD_SECTIONS[activePeriod].includes(s.key);
-          return (
-            <button
-              key={s.key}
-              onClick={() => onChange(s.key)}
-              disabled={isDisabled}
-              aria-disabled={isDisabled}
-              className={`group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition border-l-2 ${
-                isDisabled ? "cursor-not-allowed opacity-70" : ""
-              }`}
-              style={
-                isActive
-                  ? {
-                      background: "var(--sidebar-active-bg)",
-                      color: "var(--text-primary)",
-                      borderLeftColor: "var(--accent)",
-                      paddingLeft: 10,
-                    }
-                  : {
-                      background: "transparent",
-                      color: "var(--sidebar-text-muted)",
-                      borderLeftColor: "transparent",
-                    }
-              }
-              onMouseEnter={(e) => {
-                if (!isActive && !isDisabled) {
-                  e.currentTarget.style.background = "var(--sidebar-hover-bg)";
-                  e.currentTarget.style.color = "var(--text-primary)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive && !isDisabled) {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "var(--sidebar-text-muted)";
-                }
-              }}
-            >
-              <span className={`text-lg ${isDisabled ? "grayscale" : ""}`} aria-hidden>
-                {s.emoji}
-              </span>
-              <span className={`truncate ${isDisabled ? "line-through" : ""}`}>{s.label}</span>
-            </button>
-          );
-        })}
+      <div className="divider-fade mx-5" />
+      <nav aria-label="Navigasi dashboard" className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 pb-4 pt-5">
+        <div className="flex flex-col gap-2.5">
+          <GroupLabel>Instrumen untuk</GroupLabel>
+          <SectionList active={props.active} onChange={props.onChange} activePeriod={props.activePeriod} />
+        </div>
+        <div className="flex flex-col gap-2.5">
+          <GroupLabel>Periode</GroupLabel>
+          <PeriodList activePeriod={props.activePeriod} onPeriodChange={props.onPeriodChange} />
+        </div>
       </nav>
-      <div
-        className="px-4 pt-5 pb-2 text-[10px] uppercase tracking-[0.2em]"
-        style={{ color: "var(--sidebar-text-faint)" }}
-      >
-        Periode
+      <div className="mx-5 border-t border-line py-4">
+        <Credit />
       </div>
-      <div className="flex flex-col gap-1 px-2 pb-3">
-        {PERIODS.map((p: { key: Period; label: string }) => {
-          const isActive = activePeriod === p.key;
-          return (
-            <button
-              key={p.key}
-              onClick={() => onPeriodChange(p.key)}
-              className="rounded-lg px-3 py-2 text-left text-sm transition border-l-2"
-              style={
-                isActive
-                  ? {
-                      background: "var(--sidebar-active-bg)",
-                      color: "var(--text-primary)",
-                      borderLeftColor: "var(--accent)",
-                      paddingLeft: 10,
-                    }
-                  : {
-                      background: "transparent",
-                      color: "var(--sidebar-text-muted)",
-                      borderLeftColor: "transparent",
-                    }
-              }
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = "var(--sidebar-hover-bg)";
-                  e.currentTarget.style.color = "var(--text-primary)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "var(--sidebar-text-muted)";
-                }
-              }}
-            >
-              {p.label}
-            </button>
-          );
-        })}
-      </div>
-      <div
-        className="mt-auto border-t px-6 py-4 text-xs"
-        style={{
-          borderColor: "var(--sidebar-border)",
-          color: "var(--sidebar-text-faint)",
-        }}
-      >
-        Pandaibesi By Dr. Sri Rakhmawanti, S.E.,M.M.
-      </div>
-      {/* depth meter — abysswalker-style decorative rail on the right edge */}
-      <div className="depth-rail pointer-events-none absolute right-0 top-12 bottom-12 w-px opacity-70" />
     </aside>
   );
 }
 
-export function MobileTabs({
-  active,
-  onChange,
-  activePeriod,
-  onPeriodChange,
-}: {
-  active: SectionKey;
-  onChange: (k: SectionKey) => void;
-  activePeriod: Period;
-  onPeriodChange: (p: Period) => void;
-}) {
+export function MobileNav(props: NavProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -333,1076 +188,56 @@ export function MobileTabs({
     };
   }, [open]);
 
-  const current = SECTIONS.find((s) => s.key === active) ?? SECTIONS[0];
-
   return (
-    <div
-      className="sticky top-0 z-40 md:hidden bg-sidebar border-b"
-      style={{ color: "var(--sidebar-text)", borderColor: "var(--sidebar-border)" }}
-    >
-      <div ref={ref} className="relative flex items-center gap-3 px-3 py-3">
+    <div ref={ref} className="bg-sidebar sticky top-0 z-40 border-b border-line md:hidden">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <Logo />
+        <div className="min-w-0 flex-1 truncate text-[15px] font-extrabold leading-tight text-ink">Dashboard PDBK</div>
+        <ThemeToggle />
         <button
           type="button"
-          aria-label="Buka menu"
+          aria-label={open ? "Tutup menu" : "Buka menu"}
           aria-expanded={open}
+          aria-controls="mobile-menu"
           onClick={() => setOpen((v) => !v)}
-          className="flex h-9 w-9 items-center justify-center rounded-lg transition active:scale-95"
-          style={{
-            background: "var(--sidebar-active-bg)",
-            color: "var(--sidebar-text)",
-            border: "1px solid var(--sidebar-border)",
-          }}
+          className="focus-ring flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line bg-surface-muted text-ink active:scale-95"
         >
-          {open ? (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M6 6l12 12M18 6L6 18" />
-            </svg>
-          ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-              <path d="M4 7h16M4 12h16M4 17h16" />
-            </svg>
-          )}
+          {open ? <X aria-hidden className="h-5 w-5" /> : <Menu aria-hidden className="h-5 w-5" />}
         </button>
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <img
-            src="/logo.webp"
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = "/logo-fallback.jpg";
-            }}
-            alt="Logo PDBK"
-            className="h-8 w-8 rounded-lg object-cover"
-          />
-          <div className="leading-tight min-w-0">
-            <div className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>Dashboard PDBK</div>
-            <div
-              className="text-[11px] truncate max-w-[180px]"
-              style={{ color: "var(--sidebar-text-muted)" }}
-            >
-              {current.emoji} {current.label}
-            </div>
-          </div>
-        </div>
-        <ThemeToggle />
-        {open && (
-          <div
-            role="menu"
-            className="absolute left-2 right-2 top-full z-50 mt-2 overflow-hidden rounded-xl shadow-2xl"
-            style={{
-              background: "var(--chart-tooltip-bg)",
-              backdropFilter: "blur(16px)",
-              WebkitBackdropFilter: "blur(16px)",
-              border: "1px solid var(--chart-tooltip-border)",
-            }}
-          >
-            <ul className="py-1">
-              {SECTIONS.map((s) => {
-                const isActive = active === s.key;
-                const isDisabled = !PERIOD_SECTIONS[activePeriod].includes(s.key);
-                return (
-                  <li key={s.key}>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      disabled={isDisabled}
-                      aria-disabled={isDisabled}
-                      onClick={() => {
-                        onChange(s.key);
-                        setOpen(false);
-                      }}
-                      className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition border-l-2 ${
-                        isDisabled ? "cursor-not-allowed opacity-70" : ""
-                      }`}
-                      style={
-                        isActive
-                          ? {
-                              background: "var(--sidebar-active-bg)",
-                              color: "var(--text-primary)",
-                              borderLeftColor: "var(--accent)",
-                            }
-                          : {
-                              background: "transparent",
-                              color: "var(--sidebar-text)",
-                              borderLeftColor: "transparent",
-                            }
-                      }
-                    >
-                      <span className={`text-lg ${isDisabled ? "grayscale" : ""}`} aria-hidden>
-                        {s.emoji}
-                      </span>
-                      <span className={`font-medium ${isDisabled ? "line-through" : ""}`}>{s.label}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-            <div
-              className="px-4 pt-2 pb-1 text-[10px] uppercase tracking-[0.2em]"
-              style={{ color: "var(--sidebar-text-faint)" }}
-            >
-              Periode
-            </div>
-            <ul className="py-1">
-              {PERIODS.map((p: { key: Period; label: string }) => {
-                const isActive = activePeriod === p.key;
-                return (
-                  <li key={p.key}>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        onPeriodChange(p.key);
-                        setOpen(false);
-                      }}
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition border-l-2"
-                      style={
-                        isActive
-                          ? {
-                              background: "var(--sidebar-active-bg)",
-                              color: "var(--text-primary)",
-                              borderLeftColor: "var(--accent)",
-                            }
-                          : {
-                              background: "transparent",
-                              color: "var(--sidebar-text)",
-                              borderLeftColor: "transparent",
-                            }
-                      }
-                    >
-                      <span className="font-medium">{p.label}</span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
       </div>
-    </div>
-  );
-}
-
-// --- Shared UI bits ---
-export function Card({
-  title,
-  subtitle,
-  children,
-  action,
-}: {
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-  action?: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-2xl glass p-4 sm:p-5 anim-fade-in-up">
-      <header className="mb-3 flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base sm:text-lg font-semibold tracking-tight" style={{ color: "var(--text-primary)" }}>{title}</h2>
-          {subtitle ? <p className="mt-0.5 text-xs sm:text-sm" style={{ color: "var(--text-muted)" }}>{subtitle}</p> : null}
-        </div>
-        {action}
-      </header>
-      <div className="divider-thin -mt-1 mb-3" />
-      {children}
-    </section>
-  );
-}
-
-type Tone = "sumi" | "indigo" | "wisteria" | "torii" | "matcha" | "amber" | "sakura";
-
-type ToneStyle = {
-  stripe: string;
-  iconBg: string;
-  iconFg: string;
-  glow: string;
-};
-
-const TONE_STYLES: Record<Tone, ToneStyle> = {
-  sumi:     { stripe: "stat-stripe-sumi",     iconBg: "var(--tone-sumi-icon-bg)",     iconFg: "var(--tone-sumi-icon-text)",     glow: "var(--tone-sumi-glow)" },
-  indigo:   { stripe: "stat-stripe-indigo",   iconBg: "var(--tone-indigo-icon-bg)",   iconFg: "var(--tone-indigo-icon-text)",   glow: "var(--tone-indigo-glow)" },
-  wisteria: { stripe: "stat-stripe-wisteria", iconBg: "var(--tone-wisteria-icon-bg)", iconFg: "var(--tone-wisteria-icon-text)", glow: "var(--tone-wisteria-glow)" },
-  torii:    { stripe: "stat-stripe-torii",    iconBg: "var(--tone-torii-icon-bg)",    iconFg: "var(--tone-torii-icon-text)",    glow: "var(--tone-torii-glow)" },
-  matcha:   { stripe: "stat-stripe-matcha",   iconBg: "var(--tone-matcha-icon-bg)",   iconFg: "var(--tone-matcha-icon-text)",   glow: "var(--tone-matcha-glow)" },
-  amber:    { stripe: "stat-stripe-amber",    iconBg: "var(--tone-amber-icon-bg)",    iconFg: "var(--tone-amber-icon-text)",    glow: "var(--tone-amber-glow)" },
-  sakura:   { stripe: "stat-stripe-sakura",   iconBg: "var(--tone-sakura-icon-bg)",   iconFg: "var(--tone-sakura-icon-text)",   glow: "var(--tone-sakura-glow)" },
-};
-
-export function Stat({
-  label,
-  value,
-  hint,
-  tone = "sumi",
-  icon,
-}: {
-  label: string;
-  value: string | number;
-  hint?: string;
-  tone?: Tone;
-  icon?: string;
-}) {
-  const t = TONE_STYLES[tone] ?? TONE_STYLES.sumi;
-  return (
-    <div
-      className="relative flex flex-col overflow-hidden rounded-2xl glass p-4 sm:p-5 transition hover:-translate-y-0.5"
-      style={{ boxShadow: `0 0 18px -6px ${t.glow}` }}
-    >
-      <div className={`absolute inset-x-0 top-0 h-[2px] ${t.stripe}`} aria-hidden />
-      <div className="flex items-start justify-between gap-3">
-        <div className="text-[11px] sm:text-xs uppercase tracking-[0.18em] font-semibold" style={{ color: "var(--text-muted)" }}>{label}</div>
-        {icon ? (
-          <div
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-lg"
-            style={{ background: t.iconBg, color: t.iconFg }}
-          >
-            <span aria-hidden>{icon}</span>
-          </div>
-        ) : null}
-      </div>
-      <div className="mt-2 text-2xl sm:text-[28px] font-semibold leading-tight break-words" style={{ color: "var(--text-primary)" }}>{value}</div>
-      {hint ? <div className="mt-auto pt-2 text-xs" style={{ color: "var(--text-muted)" }}>{hint}</div> : null}
-    </div>
-  );
-}
-
-// --- Helpers ---
-function mostKelas(rows: { kelas: string; jumlah: number }[]): string {
-  if (!rows.length) return "-";
-  const max = Math.max(...rows.map((r) => r.jumlah));
-  return rows.filter((r) => r.jumlah === max).map((r) => r.kelas).join(" & ");
-}
-
-function mostSkill(rows: { skill: string; jumlah: number }[]): string {
-  if (!rows.length) return "-";
-  return rows.reduce((a, b) => (b.jumlah > a.jumlah ? b : a), rows[0]).skill;
-}
-
-function mostSkillYangDidapat(rows: { aspek: string; aspekFull?: string; nilai: number }[]): string {
-  if (!rows.length) return "-";
-  const top = rows.reduce((a, b) => (b.nilai > a.nilai ? b : a), rows[0]);
-  return top.aspekFull ?? top.aspek; // tampilkan teks lengkap tanpa "..."
-}
-
-function truncateWords(text: string, words: number): string {
-  // "/" juga dianggap pemisah kata → "senang/semangat" jadi 2 kata terpisah
-  const parts = text.trim().split(/\s+|\//);
-  if (parts.length <= words) return text;
-  return parts.slice(0, words).join(" ") + "...";
-}
-
-function mostKemampuanSiswa(rows: { name: string; nameFull?: string; value: number }[]): string {
-  if (!rows.length) return "-";
-  const top = rows.reduce((a, b) => (b.value > a.value ? b : a), rows[0]);
-  return truncateWords(top.nameFull ?? top.name, 3);
-}
-
-function topAspek(rows: { aspek: string; nilai: number }[]): string {
-  if (!rows.length) return "-";
-  return rows.reduce((a, b) => (b.nilai > a.nilai ? b : a), rows[0]).aspek;
-}
-
-// --- Charts ---
-export function BarChartCard({
-  data,
-  xKey,
-  dataKey,
-  fullNameKey,
-  isPercent = false,
-  height = 280,
-}: {
-  data: Array<Record<string, string | number>>;
-  xKey: string;
-  dataKey: string;
-  // Optional: jika diisi, XAxis tick membungkus teks pendek dengan <title>
-  // SVG berisi teks penuh dari field ini, sehingga saat hover browser menampilkan
-  // tooltip native berisi label lengkap (pattern sama dengan HorizontalBarChart).
-  // Juga mengaktifkan klik pada bar yang menampilkan deskripsi penuh (untuk mobile).
-  fullNameKey?: string;
-  // True bila nilai data berupa persentase 0-100 → tampilkan tanda % pada sumbu & label.
-  isPercent?: boolean;
-  height?: number;
-}) {
-  const ct = useChartTheme();
-  const [activeIdx, setActiveIdx] = useState<number | null>(null);
-  const activeItem = activeIdx !== null ? data[activeIdx] : undefined;
-  return (
-    <div>
-      {fullNameKey && (
-        <p className="mb-1 text-right" style={{ color: ct.axisSecondary, fontSize: 11 }}>
-          Ketuk bar untuk melihat deskripsi lengkap
-        </p>
-      )}
-      <div style={{ width: "100%", height }}>
-        <ResponsiveContainer>
-          <BarChart data={data} margin={{ top: 24, right: 8, left: -16, bottom: fullNameKey ? 36 : 20 }} accessibilityLayer={false}>
-            <XAxis
-              dataKey={xKey}
-              tick={
-                fullNameKey
-                  ? ({ x, y, payload }) => {
-                      const idx = payload?.index ?? -1;
-                      const short = String(payload?.value ?? "");
-                      const full = idx >= 0 ? String(data[idx]?.[fullNameKey] ?? short) : short;
-                      return (
-                        <g transform={`translate(${x},${y})`}>
-                          <title>{full}</title>
-                          <text textAnchor="end" transform="rotate(-35)" fill={ct.label} fontSize={11}>
-                            {short}
-                          </text>
-                        </g>
-                      );
-                    }
-                  : { fontSize: 12, fill: ct.axis }
-              }
-              axisLine={false}
-              tickLine={false}
-              interval={0}
-            />
-            <YAxis
-              allowDecimals={false}
-              tickFormatter={(v) => (isPercent ? `${v}%` : String(v))}
-              tick={{ fontSize: 12, fill: ct.axis }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Tooltip
-              cursor={{ fill: ct.cursor }}
-              formatter={(value) => (isPercent ? `${value}%` : value)}
-              contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: 10, color: ct.tooltipText, fontSize: 12 }}
-            />
-            <Bar
-              dataKey={dataKey}
-              radius={[6, 6, 0, 0]}
-              onClick={(_, i) => setActiveIdx(activeIdx === i ? null : i)}
-              style={{ cursor: fullNameKey ? "pointer" : undefined }}
-            >
-              {data.map((_, i) => (
-                <Cell
-                  key={i}
-                  fill={ct.palette[i % ct.palette.length]}
-                  fillOpacity={activeIdx !== null && activeIdx !== i ? 0.35 : 1}
-                />
-              ))}
-              <LabelList
-                dataKey={dataKey}
-                position="top"
-                formatter={(v) => (isPercent ? `${v}%` : String(v))}
-                style={{ fontSize: 12, fill: ct.label, fontWeight: 600 }}
-              />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      {fullNameKey && activeItem && (
+      {open ? (
         <div
-          className="mt-3 flex items-start justify-between gap-3 rounded-xl border p-3 text-sm"
-          style={{ background: ct.tooltipBg, borderColor: ct.tooltipBorder, color: ct.tooltipText }}
+          id="mobile-menu"
+          className="absolute inset-x-0 top-full max-h-[calc(100dvh-4rem)] overflow-y-auto border-b border-line bg-surface px-4 pb-5 pt-4 shadow-raised"
         >
-          <div>
-            <div className="font-semibold" style={{ color: ct.label }}>
-              {String(activeItem[xKey])}
-              <span className="ml-2" style={{ color: ct.axisSecondary, fontWeight: 500 }}>
-                Nilai: {String(activeItem[dataKey])}%
-              </span>
-            </div>
-            <p className="mt-1">{String(activeItem[fullNameKey] ?? "")}</p>
-          </div>
-          <button
-            onClick={() => setActiveIdx(null)}
-            className="shrink-0 rounded-full px-2 text-sm leading-6"
-            style={{ color: ct.axisSecondary }}
-            aria-label="Tutup detail"
-          >
-            ×
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Pie chart dengan legend vertikal di kanan + label persentase di dalam slice.
-// Mirip visual ringkasan Google Forms. Data shape: { name, value }.
-export function PieChartCard({
-  data,
-  nameKey = "name",
-  valueKey = "value",
-  height = 280,
-}: {
-  data: Array<Record<string, string | number>>;
-  nameKey?: string;
-  valueKey?: string;
-  height?: number;
-}) {
-  const ct = useChartTheme();
-  const total = data.reduce((s, d) => s + Number(d[valueKey] || 0), 0);
-  return (
-    <div style={{ width: "100%", height }}>
-      <ResponsiveContainer>
-        <PieChart accessibilityLayer={false}>
-          <Tooltip
-            contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: 10, color: ct.tooltipText, fontSize: 12 }}
-            formatter={(value, name) => [`${value} (${total ? Math.round((Number(value) / total) * 100) : 0}%)`, String(name)]}
-          />
-          <Legend
-            layout="horizontal"
-            verticalAlign="bottom"
-            align="center"
-            iconType="circle"
-            wrapperStyle={{ fontSize: 12, color: ct.label, paddingTop: 12 }}
-          />
-          <Pie
-            data={data}
-            dataKey={valueKey}
-            nameKey={nameKey}
-            cx="50%"
-            cy="45%"
-            outerRadius="70%"
-            innerRadius="0"
-            paddingAngle={1}
-            stroke={ct.tooltipBg}
-            label={({ percent }: { percent?: number }) => (percent && percent >= 0.05 ? `${Math.round(percent * 100)}%` : "")}
-            labelLine={false}
-          >
-            {data.map((_, i) => (
-              <Cell key={i} fill={ct.palette[i % ct.palette.length]} />
-            ))}
-          </Pie>
-        </PieChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-export function HorizontalBarChart({
-  data,
-  nameKey,
-  valueKey,
-  fullNameKey,
-  height = 320,
-  compact,
-}: {
-  data: Array<Record<string, string | number>>;
-  nameKey: string;
-  valueKey: string;
-  // Optional: jika diisi, YAxis tick akan membungkus teks pendek dengan <title>
-  // SVG berisi teks penuh dari field ini, sehingga saat hover browser menampilkan
-  // tooltip native berisi label lengkap (berguna untuk label panjang yang
-  // di-truncate oleh formatChartLabel). Pattern sama dengan DampakGroupedBarChart.
-  fullNameKey?: string;
-  height?: number;
-  // Optional override: true=paksa compact, false=paksa normal, undefined=auto
-  // (auto = true saat viewport <640px via useChartMode).
-  compact?: boolean;
-}) {
-  const ct = useChartTheme();
-  const compactAuto = useChartMode();
-  const isCompact = compact ?? compactAuto;
-  // Compact: YAxis lebih kecil (lebih banyak ruang untuk bar di mobile).
-  const yWidth = isCompact ? 80 : 130;
-  const yFont = isCompact ? 13 : 12;
-  const labelFont = isCompact ? 13 : 12;
-  return (
-    <div style={{ width: "100%", height }}>
-      <ResponsiveContainer>
-        <BarChart data={data} layout="vertical" margin={{ top: 8, right: 32, left: 8, bottom: 0 }} accessibilityLayer={false}>
-          <XAxis type="number" tick={{ fontSize: isCompact ? 11 : 12, fill: ct.axis }} axisLine={false} tickLine={false} />
-          <YAxis
-            type="category"
-            dataKey={nameKey}
-            width={yWidth}
-            tick={({ x, y, payload }) => {
-              const idx = payload?.index ?? -1;
-              const short = String(payload?.value ?? "");
-              const full = fullNameKey && idx >= 0 ? String(data[idx]?.[fullNameKey] ?? short) : short;
-              return (
-                <g>
-                  {fullNameKey && <title>{full}</title>}
-                  <text x={x} y={y} textAnchor="end" fill={ct.label} fontSize={yFont}>
-                    {short}
-                  </text>
-                </g>
-              );
-            }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip
-            cursor={{ fill: ct.cursor }}
-            contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: 10, color: ct.tooltipText, fontSize: 12 }}
-          />
-          <Bar dataKey={valueKey} radius={[0, 6, 6, 0]}>
-            {data.map((_, i) => (
-              <Cell key={i} fill={ct.palette[i % ct.palette.length]} />
-            ))}
-            <LabelList dataKey={valueKey} position="right" style={{ fontSize: labelFont, fill: ct.label, fontWeight: 600 }} />
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-// Tick label radar: tampilkan label pendek sebagai teks, dan teks asli
-// (sebelum di-truncate oleh formatChartLabel) sebagai tooltip native SVG
-// via <title>. Saat user hover pada label, browser otomatis show full text.
-type PolarAngleTickDatum = { aspek: string; aspekFull?: string };
-type PolarAngleTickProps = {
-  x?: number | string;
-  y?: number | string;
-  payload?: { value?: string; index?: number };
-  fill?: string;
-  data?: PolarAngleTickDatum[];
-  chartHeight?: number;
-  // Klik pada label → tampilkan deskripsi lengkap (untuk mobile tanpa hover).
-  onLabelClick?: (index: number) => void;
-  active?: boolean;
-};
-
-function PolarAngleTick({ x = 0, y = 0, payload, fill, data, chartHeight = 320, onLabelClick, active }: PolarAngleTickProps) {
-  const short = payload?.value ?? "";
-  const full = data?.[payload?.index ?? -1]?.aspekFull ?? short;
-  const index = payload?.index ?? -1;
-  const yy = Number(y);
-  const xx = Number(x);
-  // Label di separuh bawah chart terdorong ke bawah agar tidak menumpuk dgn
-  // label & titik radar di sekitarnya (masalah label bawah yg rapat).
-  const isBottom = chartHeight > 0 && yy > chartHeight * 0.62;
-  return (
-    <g>
-      <title>{full}</title>
-      <text
-        x={xx}
-        y={yy + (isBottom ? 28 : 0)}
-        textAnchor="middle"
-        fill={fill}
-        fontSize={11}
-        fontWeight={active ? 700 : 400}
-        style={{ cursor: onLabelClick ? "pointer" : undefined }}
-        onClick={onLabelClick && index >= 0 ? () => onLabelClick(index) : undefined}
-      >
-        {short}
-      </text>
-    </g>
-  );
-}
-
-export function PolarAreaChart({
-  data,
-  height = 360,
-}: {
-  data: Array<{ aspek: string; aspekFull?: string; nilai: number }>;
-  height?: number;
-}) {
-  const ct = useChartTheme();
-  const [activeIdx, setActiveIdx] = useState<number | null>(null);
-  const activeItem = activeIdx !== null ? data[activeIdx] : undefined;
-  return (
-    <div>
-      <p className="mb-1 text-right" style={{ color: ct.axisSecondary, fontSize: 11 }}>
-        Ketuk label untuk melihat deskripsi lengkap
-      </p>
-      <div style={{ width: "100%", height }}>
-        <ResponsiveContainer>
-          <RadarChart
-            data={data}
-            outerRadius="70%"
-            margin={{ top: 16, right: 56, bottom: 44, left: 56 }}
-            accessibilityLayer={false}
-          >
-            <PolarGrid stroke={ct.grid} />
-            <PolarAngleAxis
-              dataKey="aspek"
-              tick={({ x, y, payload }) => (
-                <PolarAngleTick
-                  x={x}
-                  y={y}
-                  payload={payload}
-                  fill={ct.label}
-                  data={data}
-                  chartHeight={height}
-                  onLabelClick={(i) => setActiveIdx(activeIdx === i ? null : i)}
-                  active={activeIdx === payload?.index}
-                />
-              )}
-            />
-            <PolarRadiusAxis angle={45} domain={[0, 100]} tick={false} axisLine={false} />
-            <Radar name="Skor" dataKey="nilai" stroke={ct.radarPrimary} fill={ct.radarPrimary} fillOpacity={0.45} />
-            <Tooltip
-              contentStyle={{ background: ct.tooltipBg, border: `1px solid ${ct.tooltipBorder}`, borderRadius: 10, color: ct.tooltipText, fontSize: 12 }}
-            />
-            <Legend
-              layout="horizontal"
-              verticalAlign="bottom"
-              align="center"
-              iconType="circle"
-              wrapperStyle={{ fontSize: 11, color: ct.axis, paddingTop: 8 }}
-            />
-          </RadarChart>
-        </ResponsiveContainer>
-      </div>
-      {activeItem && (
-        <div
-          className="mt-3 flex items-start justify-between gap-3 rounded-xl border p-3 text-sm"
-          style={{ background: ct.tooltipBg, borderColor: ct.tooltipBorder, color: ct.tooltipText }}
-        >
-          <div>
-            <div className="font-semibold" style={{ color: ct.label }}>
-              {activeItem.aspek}
-              <span className="ml-2" style={{ color: ct.axisSecondary, fontWeight: 500 }}>
-                Skor: {activeItem.nilai}%
-              </span>
-            </div>
-            <p className="mt-1">{activeItem.aspekFull ?? activeItem.aspek}</p>
-          </div>
-          <button
-            onClick={() => setActiveIdx(null)}
-            className="shrink-0 rounded-full px-2 text-sm leading-6"
-            style={{ color: ct.axisSecondary }}
-            aria-label="Tutup detail"
-          >
-            ×
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Bar chart horizontal khusus shape {aspek, nilai} (skor/persentase).
-// Dipakai card "Manfaat Asesmen" ortu yang sumber datanya pertanyaan
-// multi-aspek di Google Form — radar/polar tidak cocok untuk banyak aspek
-// dengan nilai yang seragam, sehingga sulit dibaca. Mirip visual Google
-// Forms summary (bar horizontal + label nilai di kanan).
-export function AspekBarChart({
-  data,
-  height = 320,
-  compact,
-}: {
-  data: Array<{ aspek: string; aspekFull?: string; nilai: number }>;
-  height?: number;
-  // Optional override: true=paksa compact, false=paksa normal, undefined=auto
-  // (auto = true saat viewport <640px via useChartMode).
-  compact?: boolean;
-}) {
-  const ct = useChartTheme();
-  const compactAuto = useChartMode();
-  const isCompact = compact ?? compactAuto;
-  // Compact: YAxis lebih kecil (lebih banyak ruang untuk bar di mobile).
-  const yWidth = isCompact ? 90 : 160;
-  const yFont = isCompact ? 13 : 12;
-  const labelFont = isCompact ? 12 : 11;
-  const marginR = isCompact ? 40 : 56;
-  // Auto-grow jika baris >5 agar tidak terpotong (lebih ringkas di compact).
-  const growPerRow = isCompact ? 24 : 28;
-  const computed = height + Math.max(0, data.length - 5) * growPerRow;
-  return (
-    <div style={{ width: "100%", height: computed }}>
-      <ResponsiveContainer>
-        <BarChart data={data} layout="vertical" margin={{ top: 8, right: marginR, left: 8, bottom: 8 }} accessibilityLayer={false}>
-          <XAxis
-            type="number"
-            domain={[0, 100]}
-            tick={{ fontSize: isCompact ? 10 : 11, fill: ct.axis }}
-            axisLine={false}
-            tickLine={false}
-            unit="%"
-          />
-          <YAxis
-            type="category"
-            dataKey="aspek"
-            width={yWidth}
-            tick={({ x, y, payload }) => {
-              const idx = payload?.index ?? -1;
-              const short = String(payload?.value ?? "");
-              const full = data[idx]?.aspekFull ?? short;
-              return (
-                <g>
-                  <title>{full}</title>
-                  <text x={x} y={y} textAnchor="end" fill={ct.label} fontSize={yFont}>
-                    {short}
-                  </text>
-                </g>
-              );
-            }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip
-            cursor={{ fill: ct.cursor }}
-            contentStyle={{
-              background: ct.tooltipBg,
-              border: `1px solid ${ct.tooltipBorder}`,
-              borderRadius: 10,
-              color: ct.tooltipText,
-              fontSize: 12,
-            }}
-            formatter={(value) => [`${value}%`, "Skor"]}
-          />
-          <Bar dataKey="nilai" radius={[0, 6, 6, 0]}>
-            {data.map((_, i) => (
-              <Cell key={i} fill={ct.palette[i % ct.palette.length]} />
-            ))}
-            <LabelList
-              dataKey="nilai"
-              position="right"
-              formatter={(value) => `${value}%`}
-              style={{ fontSize: labelFont + 1, fill: ct.label, fontWeight: 600 }}
-            />
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-// Single horizontal bar chart untuk dampak program per aspek.
-// Sheet Kepala Sekolah tidak pnya data Sebelul, jadi honya tampilkan 1 bar (sesudah/capaiian).
-// Mirip visual ringkasan Google Forms + label "N (X%)" di ujung kanan.
-function DampakGroupedBarChart({
-  data,
-  height = 320,
-  compact,
-}: {
-  data: Array<{ aspek: string; aspekFull?: string; sesudah: number; sesudahCount?: number }>;
-  height?: number; 
-  // Optional override: true=paksa compact, false=paksa normal, undefined=auto
-  // (auto = true saat viewport <640px via useChartMode).
-  compact?: boolean;
-}) {
-  const ct = useChartTheme();
-  const compactAuto = useChartMode();
-  const isCompact = compact ?? compactAuto;
-  // Compact: YAxis lebih kecil (lebih banyak ruang untuk bar di mobile).
-  const yWidth = isCompact ? 100 : 180;
-  const yFont = isCompact ? 13 : 12;
-  const labelFont = isCompact ? 12 : 11;
-  const marginR = isCompact ? 56 : 72;
-  // Auto-grow jika baris >5 (lebih ringkas di compact).
-  const growPerRow = isCompact ? 24 : 32;
-  const computed = height + Math.max(0, data.length - 5) * growPerRow;
-  return (
-    <div style={{ width: "100%", height: computed }}>
-      <ResponsiveContainer>
-        <BarChart
-          data={data}
-          layout="vertical"
-          margin={{ top: 8, right: marginR, left: 8, bottom: 8 }}
-          barCategoryGap="20%"
-          accessibilityLayer={false}
-        >
-          <XAxis
-            type="number"
-            domain={[0, 100]}
-            tick={{ fontSize: isCompact ? 10 : 11, fill: ct.axis }}
-            axisLine={false}
-            tickLine={false}
-            unit="%"
-          />
-          <YAxis
-            type="category"
-            dataKey="aspek"
-            width={yWidth}
-            tick={({ x, y, payload }) => {
-              const full = data[payload?.index ?? -1]?.aspekFull ?? String(payload?.value ?? "");
-              return (
-                <g>
-                  <title>{full}</title>
-                  <text x={x} y={y} textAnchor="end" fill={ct.label} fontSize={yFont}>
-                    {payload?.value}
-                  </text>
-                </g>
-              );
-            }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip
-            cursor={{ fill: ct.cursor }}
-            contentStyle={{
-              background: ct.tooltipBg,
-              border: `1px solid ${ct.tooltipBorder}`,
-              borderRadius: 10,
-              color: ct.tooltipText,
-              fontSize: 12,
-            }}
-            formatter={(value, name) => [`${value}%`, String(name)]}
-          />
-          <Bar dataKey="sesudah" name="Sesudah" fill={ct.radarPrimary} radius={[0, 4, 4, 0]}>
-            <LabelList
-              dataKey={(d: { sesudah: number; sesudahCount?: number }) =>
-                `${d.sesudahCount ?? 0} (${d.sesudah}%)`
-              }
-              position="right"
-              style={{ fontSize: labelFont, fill: ct.label, fontWeight: 600 }}
-            />
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-// --- Section components ---
-function SectionHeader({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle: string }) {
-  return (
-    <header>
-      <div className="text-[10px] uppercase tracking-[0.25em] font-semibold" style={{ color: "var(--accent)" }}>{eyebrow}</div>
-      <h1 className="mt-1 text-2xl sm:text-3xl font-light tracking-tight" style={{ color: "var(--text-primary)" }}>{title}</h1>
-      <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>{subtitle}</p>
-      <div className="divider-thin mt-4" />
-    </header>
-  );
-}
-
-function NumberedList({ items, emptyText }: { items: string[]; emptyText: string }) {
-  if (!items.length) return <p className="text-sm" style={{ color: "var(--text-muted)" }}>{emptyText}</p>;
-  return (
-    <ul style={{ borderColor: "var(--border)" }} className="divide-y">
-      {items.map((k, i) => (
-        <li key={i} className="flex items-start gap-3 py-3 text-sm">
-          <span
-            className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ring-1"
-            style={{ background: "var(--sidebar-active-bg)", color: "var(--text-primary)", borderColor: "var(--border)" }}
-          >
-            {i + 1}
-          </span>
-          <span style={{ color: "var(--text-secondary)" }}>{k}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-export function GuruSection({ data, period }: { data: GuruData; period: Period }) {
-  const most = mostKelas(data.sebaranKelas);
-  const is2025 = period === "2025-s1" || period === "2025-s2";
-  return (
-    <div className="space-y-6">
-      <SectionHeader
-        eyebrow={is2025 ? "Bagian 1 dari 1" : "Bagian 1 dari 4"}
-        title="Instrumen untuk Guru"
-        subtitle="Ringkasan hasil survei dari guru PDBK di berbagai jenjang dan kelas."
-      />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-        <Stat label="Total Responden" value={data.totalResponden} hint="Guru berpartisipasi" tone="sumi" icon="👥" />
-        <Stat label="Kelas Terbanyak" value={most} hint="Guru paling banyak mengajar di sini" tone="indigo" icon="🏷️" />
-        <Stat
-          label="Skill Terbanyak"
-          value={is2025 ? mostSkillYangDidapat(data.skillYangDidapat ?? []) : mostSkill(data.capaianKeterampilan)}
-          hint={is2025 ? "Skill Yang di Dapat Setelah Pendampingan" : "Keterampilan yang sering dikuasai"}
-          tone="wisteria"
-          icon="⭐"
-        />
-        <Stat
-          label={is2025 ? "Kemampuan Siswa/i" : "Total Kebutuhan"}
-          value={is2025 ? mostKemampuanSiswa(data.chartTower ?? []) : data.kebutuhanPendampingan.length}
-          hint={is2025 ? "Kemampuan Terbaik Yang Dilakukan PDBK" : "Item pendampingan diminta"}
-          tone="amber"
-          icon="📋"
-        />
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <Card title="Sebaran Guru per Kelas" subtitle="Jumlah responden per kelas yang diajar">
-          {is2025 ? (
-            <PieChartCard
-              data={data.sebaranKelas.map((d) => ({ name: d.kelas, value: d.jumlah }))}
-              height={360}
-            />
-          ) : (
-            <BarChartCard data={data.sebaranKelas} xKey="kelas" dataKey="jumlah" />
-          )}
-        </Card>
-        <Card
-          title={
-            is2025
-              ? "Pemahaman Guru"
-              : "Keterampilan Baru yang Dikuasai Peserta Didik"
-          }
-          subtitle={
-            is2025
-              ? "Sejauh Mana Pemahaman Guru Mengenai Pendidikan Inklusif"
-              : "Diurutkan dari yang paling banyak"
-          }
-        >
-          {is2025 ? (
-            <PolarAreaChart data={data.pemahamanInklusif ?? []} />
-          ) : (
-            <HorizontalBarChart
-              data={data.capaianKeterampilan}
-              nameKey="skill"
-              valueKey="jumlah"
-              fullNameKey="skillFull"
-            />
-          )}
-        </Card>
-      </div>
-      {is2025 && (
-        <Card title="Skill yang Di Dapat" subtitle="Skor keterampilan yang didapat Guru Setelah Program PDBK">
-          <PolarAreaChart data={data.skillYangDidapat ?? []} />
-        </Card>
-      )}
-      {is2025 && (
-        <Card title="Kemampuan Siswa/i" subtitle="Kemampuan yang dapat dilakukan PDBK">
-          <BarChartCard data={data.chartTower ?? []} xKey="name" dataKey="value" fullNameKey="nameFull" isPercent height={360} />
-        </Card>
-      )}
-      {!is2025 && (
-        <Card title="Pendampingan yang Masih Dibutuhkan" subtitle="Ringkasan kebutuhan dari guru">
-          <NumberedList items={data.kebutuhanPendampingan} emptyText="Belum ada data." />
-        </Card>
-      )}
-    </div>
-  );
-}
-
-export function KepsekSection({ data }: { data: KepsekData }) {
-  const totalSekolah = data.sebaranJenjang.reduce((s, d) => s + d.value, 0);
-  return (
-    <div className="space-y-6">
-      <SectionHeader
-        eyebrow="Bagian 2 dari 4"
-        title="Instrumen untuk Kepala Sekolah"
-        subtitle="Perspektif sekolah terhadap dampak program pendampingan PDBK."
-      />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 items-stretch">
-        <Stat label="Total Responden" value={data.totalResponden} hint="Kepala sekolah" tone="sumi" icon="👥" />
-        <Stat label="Total Sekolah" value={totalSekolah} hint="Mewakili berbagai jenjang" tone="indigo" icon="🏫" />
-        <Stat
-          label="Rata-rata Dampak"
-          value={`${Math.round(
-            data.dampakProgram.reduce((s, d) => s + d.sesudah, 0) / Math.max(1, data.dampakProgram.length),
-          )}%`}
-          hint="Indeks komposit 5 aspek (sesudah)"
-          tone="torii"
-          icon="📊"
-        />
-        {/* HIDDEN: kotak stat "Kenaikan Tertinggi" (lihat dashboard/HIDDEN_FEATURES.md). */}
-        {/* <Stat
-          label="Kenaikan Tertinggi"
-          value={`+${Math.max(...data.dampakProgram.map((d) => d.sesudah - d.sebelum))}%`}
-          hint="Aspek yang paling melonjak"
-          tone="matcha"
-          icon="📈"
-        /> */}
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <Card title="Sebaran per Jenjang" subtitle="Distribusi sekolah responden">
-          <PieChartCard data={data.sebaranJenjang} nameKey="name" valueKey="value" />
-        </Card>
-        <Card title="Dampak Program" subtitle="Lima aspek utama">
-          <DampakGroupedBarChart data={data.dampakProgram} />
-        </Card>
-      </div>
-      <Card title="Saran untuk Perbaikan Program" subtitle="Catatan dari kepala sekolah">
-        <NumberedList items={data.saran} emptyText="Belum ada data." />
-      </Card>
-    </div>
-  );
-}
-
-export function OrtuSection({ data }: { data: OrtuData }) {
-  return (
-    <div className="space-y-6">
-      <SectionHeader
-        eyebrow="Bagian 3 dari 4"
-        title="Instrumen untuk Orang Tua"
-        subtitle="Perspektif orang tua terhadap manfaat pendampingan bagi anak."
-      />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-        <Stat label="Total Responden" value={data.totalResponden} hint="Orang tua berpartisipasi" tone="sumi" icon="👨‍👩‍👧" />
-        <Stat
-          label="Rata-rata Manfaat"
-          value={`${Math.round(
-            data.capaianManfaat.reduce((s, d) => s + d.nilai, 0) / Math.max(1, data.capaianManfaat.length),
-          )}%`}
-          hint="Skor rata-rata"
-          tone="torii"
-          icon="💡"
-        />
-        <Stat
-          label="Aspek Tertinggi"
-          value={`${Math.max(...data.capaianManfaat.map((d) => d.nilai))}%`}
-          hint={topAspek(data.capaianManfaat)}
-          tone="wisteria"
-          icon="🏆"
-        />
-        <Stat label="Total Testimoni" value={data.perubahanPositif.length} hint="Cerita perubahan positif" tone="matcha" icon="💬" />
-      </div>
-      <Card title="Manfaat Asesmen dari Perspektif Orang Tua" subtitle="Aspek yang paling dirasakan positif">
-        <AspekBarChart data={data.capaianManfaat} />
-      </Card>
-      <Card title="Perubahan Positif yang Dirasakan Orang Tua" subtitle="Testimoni kualitatif">
-        {data.perubahanPositif.length ? (
-          <div className="grid sm:grid-cols-2 gap-3">
-            {data.perubahanPositif.map((p, i) => (
-              <article
-                key={i}
-                className="relative rounded-xl border p-4 pl-5 anim-fade-in-up"
-                style={{
-                  animationDelay: `${i * 60}ms`,
-                  borderColor: "var(--testimoni-border)",
-                  background: "var(--testimoni-bg)",
+          <nav aria-label="Navigasi dashboard" className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2.5">
+              <GroupLabel>Instrumen untuk</GroupLabel>
+              <SectionList
+                active={props.active}
+                activePeriod={props.activePeriod}
+                onChange={(k) => {
+                  props.onChange(k);
+                  setOpen(false);
                 }}
-              >
-                <span
-                  className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full"
-                  style={{ background: "linear-gradient(to bottom, var(--testimoni-accent-from), var(--testimoni-accent-to))" }}
-                  aria-hidden
-                />
-                <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>{p.judul}</h3>
-                <p
-                  className="mt-2 text-sm leading-relaxed italic"
-                  style={{ color: "var(--text-secondary)", fontFamily: "ui-serif, Georgia, 'Times New Roman', serif" }}
-                >
-                  &ldquo;{p.cerita}&rdquo;
-                </p>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Belum ada testimoni.</p>
-        )}
-      </Card>
-    </div>
-  );
-}
-
-export function SiswaSection({ data }: { data: SiswaData }) {
-  return (
-    <div className="space-y-6">
-      <SectionHeader
-        eyebrow="Bagian 4 dari 4"
-        title="Instrumen untuk Peserta Didik"
-        subtitle="Suara peserta didik tentang pengalaman belajar dan hal yang mereka sukai."
-      />
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch">
-        <Stat label="Total Responden" value={data.totalResponden} hint="Peserta didik" tone="sumi" icon="🎒" />
-        <Stat
-          label="Rata-rata Pengalaman"
-          value={`${Math.round(
-            data.pengalamanBelajar.reduce((s, d) => s + d.nilai, 0) / Math.max(1, data.pengalamanBelajar.length),
-          )}%`}
-          hint="Skor rata-rata"
-          tone="torii"
-          icon="📐"
-        />
-        <Stat
-          label="Aspek Tertinggi"
-          value={`${Math.max(...data.pengalamanBelajar.map((d) => d.nilai))}%`}
-          hint={topAspek(data.pengalamanBelajar)}
-          tone="wisteria"
-          icon="🌟"
-        />
-        <Stat label="KATA UNIK" value={new Set(data.halDisukai.map(w => w.toLowerCase())).size} hint="Kata Unik Yang Muncul" tone="matcha" icon="💚" />
-      </div>
-      <Card title="Pengalaman Belajar setelah Asesmen" subtitle="Aspek yang paling dirasakan positif">
-        <PolarAreaChart data={data.pengalamanBelajar} />
-      </Card>
-      <Card title="Hal yang Paling Disukai di Sekolah" subtitle="Kata-kata yang sering muncul">
-        <div className="rounded-xl bg-wordcloud p-2">
-          <WordCloud words={data.halDisukai} height={300} />
+              />
+            </div>
+            <div className="flex flex-col gap-2.5">
+              <GroupLabel>Periode</GroupLabel>
+              <PeriodList
+                activePeriod={props.activePeriod}
+                onPeriodChange={(p) => {
+                  props.onPeriodChange(p);
+                  setOpen(false);
+                }}
+              />
+            </div>
+            <div className="border-t border-line pt-4">
+              <Credit />
+            </div>
+          </nav>
         </div>
-      </Card>
+      ) : null}
     </div>
   );
 }

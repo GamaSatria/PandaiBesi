@@ -4,8 +4,5 @@
     "build": "npm --prefix dashboard run build",
     "start": "npm --prefix dashboard run start",
     "lint": "npm --prefix dashboard run lint"
-  },
-  "dependencies": {
-    "recharts": "^3.10.1"
   }
 }

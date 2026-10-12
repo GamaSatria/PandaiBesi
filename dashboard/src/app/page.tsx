@@ -1,14 +1,12 @@
-import { Suspense } from "react";
 import { loadDashboardData } from "@/lib/data";
 import { DashboardShell } from "@/components/DashboardShell";
 
-export const revalidate = 0; // pull fresh on each request; PRD: sinkron saat refresh
+// ISR: halaman disajikan statis (instan) dan diperbarui di belakang layar paling
+// cepat tiap 60 detik — respons Google Form baru muncul paling lambat ±1 menit.
+// Kalau pembaruan gagal, data terakhir yang berhasil tetap ditampilkan.
+export const revalidate = 60;
 
 export default async function Page() {
   const data = await loadDashboardData();
-  return (
-    <Suspense fallback={<div className="p-6 text-sm text-slate-500">Memuat data…</div>}>
-      <DashboardShell data={data} />
-    </Suspense>
-  );
+  return <DashboardShell data={data} />;
 }
